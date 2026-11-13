@@ -1,0 +1,13 @@
+appId: dev.stagekeys.app
+productName: Stagekeys
+directories:
+  output: release
+files:
+  - out/**
+  - package.json
+mac:
+  category: public.app-category.productivity
+  target: dir
+  identity: null
+win:
+  target: dir
