@@ -49,6 +49,10 @@ First working build. Deck schema version 1.
 - Export all slides as PNG files or a single PDF.
 - FPS overlay (Cmd/Ctrl+Shift+F) with MIDI-to-frame latency; latency logged in development.
 
+### Install
+
+- App icon (`build/icon.svg`) and `pnpm install-app`, which installs `/Applications/Stagekeys.app` with a Desktop shortcut.
+
 ### Known gaps
 
 - Not yet tried with a physical MIDI keyboard or a second display.

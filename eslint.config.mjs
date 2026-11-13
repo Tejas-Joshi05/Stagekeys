@@ -52,5 +52,10 @@ export default tseslint.config(
       ],
     },
   },
+  {
+    // Plain Node build scripts run directly by Electron, outside the app bundle.
+    files: ['scripts/**/*.cjs'],
+    rules: { '@typescript-eslint/no-require-imports': 'off', 'no-console': 'off' },
+  },
   prettier,
 );

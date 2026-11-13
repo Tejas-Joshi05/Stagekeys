@@ -2,12 +2,16 @@ appId: dev.stagekeys.app
 productName: Stagekeys
 directories:
   output: release
+  buildResources: build
 files:
   - out/**
   - package.json
 mac:
   category: public.app-category.productivity
+  icon: build/icon.png
   target: dir
+  # Not code-signed with a developer certificate; ad-hoc signed by scripts/install-mac.sh.
   identity: null
 win:
+  icon: build/icon.png
   target: dir

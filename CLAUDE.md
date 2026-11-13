@@ -32,6 +32,8 @@ MIDI-controlled slide editor and live presenter (Electron + Vite + React + TypeS
 - `pnpm format` — Prettier
 - `pnpm build` — production build into `out/`
 - `pnpm package` — unpacked app in `release/` (unsigned)
+- `pnpm install-app` — package, ad-hoc sign, install to `/Applications` and link it on the Desktop (macOS). Rerun after changes.
+- `pnpm icon` — re-render `build/icon.png` from `build/icon.svg`
 
 Gotchas:
 

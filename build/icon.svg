@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#2a2e3a"/>
+      <stop offset="1" stop-color="#121318"/>
+    </linearGradient>
+    <linearGradient id="screen" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#6c8cff"/>
+      <stop offset="1" stop-color="#c77dff"/>
+    </linearGradient>
+    <clipPath id="tile"><rect x="100" y="100" width="824" height="824" rx="185"/></clipPath>
+  </defs>
+  <rect x="100" y="100" width="824" height="824" rx="185" fill="url(#bg)"/>
+  <g clip-path="url(#tile)">
+    <!-- the slide -->
+    <rect x="200" y="215" width="624" height="351" rx="28" fill="url(#screen)"/>
+    <circle cx="512" cy="390" r="92" fill="none" stroke="#ffffff" stroke-width="22" opacity="0.95"/>
+    <circle cx="512" cy="390" r="150" fill="none" stroke="#ffffff" stroke-width="12" opacity="0.45"/>
+    <!-- the keys -->
+    <g transform="translate(160 640)">
+      <rect x="0" y="0" width="704" height="300" fill="#f4f4f6"/>
+      <g stroke="#9a9aa3" stroke-width="6">
+        <line x1="100.6" y1="0" x2="100.6" y2="300"/><line x1="201.1" y1="0" x2="201.1" y2="300"/>
+        <line x1="301.7" y1="0" x2="301.7" y2="300"/><line x1="402.3" y1="0" x2="402.3" y2="300"/>
+        <line x1="502.9" y1="0" x2="502.9" y2="300"/><line x1="603.4" y1="0" x2="603.4" y2="300"/>
+      </g>
+      <rect x="201.1" y="0" width="100.6" height="300" fill="#ffb84d"/>
+      <g fill="#17171c">
+        <rect x="68" y="0" width="64" height="170" rx="8"/><rect x="169" y="0" width="64" height="170" rx="8"/>
+        <rect x="370" y="0" width="64" height="170" rx="8"/><rect x="471" y="0" width="64" height="170" rx="8"/>
+        <rect x="571" y="0" width="64" height="170" rx="8"/>
+      </g>
+    </g>
+  </g>
+</svg>
