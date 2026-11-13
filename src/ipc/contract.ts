@@ -8,6 +8,8 @@ export type Result<T> = { ok: true; value: T } | { ok: false; error: string };
 export const ok = <T>(value: T): Result<T> => ({ ok: true, value });
 export const err = <T = never>(error: string): Result<T> => ({ ok: false, error });
 
+import type { AppSettings, SettingsPatch } from './settings';
+
 export const DECK_EXTENSION = '.stagekeys';
 
 export interface AppInfo {
@@ -110,6 +112,11 @@ export interface StagekeysApi {
   onFlushRequest(callback: () => void): () => void;
   flushDone(error: string | null): void;
 
+  getSettings(): Promise<AppSettings>;
+  /** Merges the patch, saves it, and sends the result to every window. */
+  updateSettings(patch: SettingsPatch): Promise<AppSettings>;
+  onSettingsChanged(callback: (settings: AppSettings) => void): () => void;
+
   log(level: LogLevel, message: string, data?: unknown): void;
   openLogFolder(): Promise<void>;
 }
@@ -140,6 +147,9 @@ export const CHANNELS = {
   menuAction: 'menu:action',
   flushRequest: 'app:flushRequest',
   flushDone: 'app:flushDone',
+  getSettings: 'settings:get',
+  updateSettings: 'settings:update',
+  settingsChanged: 'settings:changed',
   log: 'log:write',
   openLogFolder: 'log:openFolder',
 } as const;

@@ -104,6 +104,18 @@ describe('keyboard shortcuts', () => {
     expect(actionForKey(key('Escape'), 'show')).toEqual({ type: 'show.end' });
     expect(actionForKey(key('b'), 'show')).toEqual({ type: 'show.blackToggle' });
     expect(actionForKey(key('h'), 'show')).toEqual({ type: 'show.panic' });
+    expect(actionForKey(key('k'), 'show')).toEqual({ type: 'view.toggleKeys' });
+    expect(actionForKey(key('p'), 'show')).toEqual({ type: 'audio.togglePiano' });
+  });
+
+  it('toggles the piano and keys picture with shift-command in the editor', () => {
+    expect(actionForKey(key('P', { metaKey: true, shiftKey: true }), 'editor')).toEqual({
+      type: 'audio.togglePiano',
+    });
+    expect(actionForKey(key('K', { metaKey: true, shiftKey: true }), 'editor')).toEqual({
+      type: 'view.toggleKeys',
+    });
+    expect(actionForKey(key('p'), 'editor')).toBeNull();
   });
 
   it('maps standard editor shortcuts', () => {

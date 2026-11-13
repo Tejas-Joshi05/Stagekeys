@@ -1,10 +1,20 @@
 import { actionForKey, actions, dispatch } from '../actions';
+import { preloadArt } from '../animations';
+import { startPiano } from '../audio';
 import { parseDeck } from '../deck';
 import { startMappingEngine } from '../mapping';
-import { midi, MockMidiSource, toMonitorLine, useMidiStore, WebMidiSource } from '../midi';
+import {
+  KeysOverlay,
+  midi,
+  MockMidiSource,
+  toMonitorLine,
+  useMidiStore,
+  WebMidiSource,
+} from '../midi';
 import { getDeckResources, loadBundledFonts } from '../render';
 import { api } from '../shared/api';
 import { errorMessage, logger } from '../shared/log';
+import { initSettings, updateSettings, useSettings } from '../shared/settings';
 import { formatDuration } from '../shared/util';
 import { ControlMessageSchema, type StageMessage, type StageState } from './messages';
 import { StagePlayer } from './StagePlayer';
@@ -50,7 +60,7 @@ export async function runStage(root: HTMLElement): Promise<void> {
     logger.error(`Action ${action.type} failed on stage`, errorMessage(error)),
   );
 
-  const [info, init] = await Promise.all([api().getInfo(), api().getShowInit()]);
+  const [info, init] = await Promise.all([api().getInfo(), api().getShowInit(), initSettings()]);
   if (!init) {
     showFatal(root, 'No show to present.');
     return;
@@ -67,7 +77,7 @@ export async function runStage(root: HTMLElement): Promise<void> {
     return;
   }
   const deck = parsed.deck;
-  await loadBundledFonts();
+  await Promise.all([loadBundledFonts(), preloadArt()]);
 
   const canvas = document.createElement('canvas');
   canvas.className = 'stage-canvas';
@@ -77,7 +87,25 @@ export async function runStage(root: HTMLElement): Promise<void> {
   const timerEl = document.createElement('div');
   timerEl.className = 'rehearsal-timer';
   timerEl.hidden = !init.rehearsal;
-  root.append(canvas, fpsEl, timerEl);
+  const keysEl = document.createElement('canvas');
+  keysEl.className = 'stage-keys';
+  root.append(canvas, fpsEl, timerEl, keysEl);
+
+  // The little controller picture for the audience. Toggled with K or a mapped key.
+  const keys = new KeysOverlay(keysEl, midi.input, () => useSettings.getState().controller);
+  const placeKeys = (): void => {
+    const { stage, corner } = useSettings.getState().keysOverlay;
+    keysEl.hidden = !stage;
+    keysEl.dataset.corner = corner;
+    keys.setWidth(Math.round(Math.min(440, Math.max(220, window.innerWidth * 0.2))));
+    if (stage) keys.start();
+    else keys.stop();
+  };
+  placeKeys();
+  useSettings.subscribe((s, prev) => {
+    if (s.keysOverlay !== prev.keysOverlay) placeKeys();
+  });
+  window.addEventListener('resize', placeKeys);
 
   let animationErrors = 0;
   const timeline = new ShowTimeline();
@@ -155,6 +183,12 @@ export async function runStage(root: HTMLElement): Promise<void> {
   actions.register('view.toggleFps', () => {
     fpsEl.hidden = !fpsEl.hidden;
   });
+  actions.register('view.toggleKeys', () => {
+    updateSettings({ keysOverlay: { stage: !useSettings.getState().keysOverlay.stage } });
+  });
+  actions.register('audio.togglePiano', () => {
+    updateSettings({ piano: { enabled: !useSettings.getState().piano.enabled } });
+  });
   let ending = false;
   actions.register('show.end', () => {
     if (ending) return;
@@ -199,6 +233,7 @@ export async function runStage(root: HTMLElement): Promise<void> {
       global: deck.mappings,
     }),
   });
+  startPiano({ bus: midi.bus });
   if (info.e2e) {
     await midi.start(
       new MockMidiSource([{ id: 'mock', name: 'Mock Keys', manufacturer: 'Stagekeys' }]),
@@ -234,6 +269,14 @@ export async function runStage(root: HTMLElement): Promise<void> {
       fps: player.meter.fps,
       latencyMs: player.meter.latency,
       animationErrors,
+      held: [...midi.input.held].map(([note, velocity]) => [
+        note,
+        velocity,
+        midi.input.heldChannel.get(note) ?? 1,
+      ]),
+      cc: [...midi.input.cc.entries()].filter(([, v]) => v > 0),
+      pitchBend: midi.input.pitchBend,
+      sustain: midi.input.sustain,
     };
     send(state);
     if (init.rehearsal) {

@@ -2,7 +2,36 @@
 
 Stagekeys follows semantic versioning. Deck files carry their own `schemaVersion`.
 
-## 0.1.0 (unreleased)
+## 0.2.0 (unreleased)
+
+Deck schema stays at version 1; decks from 0.1.0 open unchanged.
+
+### Riso animations from tejasjoshi.vercel.app
+
+- **ASCII garden**: the website's live ASCII plants (tulip, maple, lily, branch, squill, ficus, rowan), drawn as GPU glyph particles in two inks. They grow in from the stem, a key press sends a ripple of flickering glyphs out from that key, a mapped trigger grows the next plant with the website's centre-out ripple, held keys thicken the ink, pitch bend leans the plant and the mod wheel (bound to Wind) blows it about. Birds fly past now and then.
+- **Pressed flowers**: the pressed riso flowers bloom in where you play, as on the website's opening screen. Each key has its own flower, velocity sets the size, letting go opens it out (unless the sustain pedal is down) and a mapped trigger blooms the whole bouquet.
+- New animations pick inks that suit the slide they are placed on.
+
+### MPK mini IV
+
+- **Keys picture**: a small MPK mini IV that lights up with held keys, pads, knob positions, both wheels and the sustain pedal. It can be shown in the editor, in the presenter view and on the audience screen, in any corner. Toggle with ⇧⌘K, K during a show, or a mapped key.
+- **Controller map** replaces the mapping list. With the Mapping tab open, pressing any pad, key or knob chooses it on a picture of the controller (or click it); then pick what it does. Mapped controls are marked; slide-only ones in a different ink. Every mapping is also listed as a plain sentence ("Pad 1 ⟶ Next slide").
+- Teach Stagekeys which notes your pads send and which CCs your knobs send, from the MIDI & sound tab.
+
+### Piano sound
+
+- Optional piano: each key plays a note through the Mac's output. Felt, grand and electric voices, volume, sustain pedal, keys that trigger a mapping can stay silent, pads silent by default. Toggle with ⇧⌘P, P during a show, or a mapped key. Off by default.
+
+### Look
+
+- New "night riso" interface: warm dark ground, cream type in Familjen Grotesk with IBM Plex Mono for MIDI data, and the website's rose and leaf inks for selection and live state. Chosen things carry a rose second ink printed slightly off register.
+- The welcome screen grows the ASCII plants live.
+
+### Settings
+
+- App settings (piano, keys picture, controller layout) are saved in `settings.json` in the app data folder and shared live between the editor and the stage window.
+
+## 0.1.0
 
 First working build. Deck schema version 1.
 

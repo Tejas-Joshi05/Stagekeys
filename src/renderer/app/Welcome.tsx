@@ -6,6 +6,7 @@ import { api } from '../shared/api';
 import { notify } from '../shared/notify';
 import { useAppStore } from './appStore';
 import { reportOpenResult } from './controlActions';
+import { WelcomeGarden } from './WelcomeGarden';
 
 const when = (ms: number): string =>
   new Date(ms).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' });
@@ -61,6 +62,7 @@ export function Welcome() {
 
   return (
     <div className="welcome" data-testid="welcome">
+      <WelcomeGarden />
       <div className="welcome-card">
         <h1>Stagekeys</h1>
         <p className="tagline">Slides you play from a MIDI keyboard.</p>
@@ -77,15 +79,14 @@ export function Welcome() {
             onClick={() => dispatch({ type: 'file.open' }, 'ui')}
             data-testid="open-deck"
           >
-            Open deck…
+            Open deck
           </button>
         </div>
         {drafts.length > 0 && (
           <div className="drafts" data-testid="drafts">
             <h2>Unsaved drafts</h2>
             <p className="hint">
-              Decks you edited but never saved to a location. They are kept here until you delete
-              them.
+              Decks you edited but never saved to a location. They stay here until you delete them.
             </p>
             {drafts.map((d) => (
               <div className="draft" key={d.path}>

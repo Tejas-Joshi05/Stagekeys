@@ -31,6 +31,7 @@ import {
   useEditorUi,
 } from '../editor';
 import { sendToStage, startShow, usePresenterStore } from '../presenter';
+import { updateSettings, useSettings } from '../shared/settings';
 import { useAppStore } from './appStore';
 
 const showing = (): boolean => usePresenterStore.getState().active;
@@ -209,5 +210,15 @@ export function registerControlActions(): void {
   actions.register('view.toggleFps', (a) => {
     if (showing()) sendToStage(a, 'ui');
     else useEditorUi.setState((s) => ({ fpsVisible: !s.fpsVisible }));
+  });
+  // Settings changes reach the stage window through main, so no forwarding is needed.
+  actions.register('view.toggleKeys', () => {
+    const overlay = useSettings.getState().keysOverlay;
+    updateSettings({
+      keysOverlay: showing() ? { stage: !overlay.stage } : { control: !overlay.control },
+    });
+  });
+  actions.register('audio.togglePiano', () => {
+    updateSettings({ piano: { enabled: !useSettings.getState().piano.enabled } });
   });
 }

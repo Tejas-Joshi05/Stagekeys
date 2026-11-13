@@ -57,9 +57,17 @@ function probe() {
 }
 
 describe('animation registry', () => {
-  it('contains the five starter animations with unique ids', () => {
+  it('contains the built-in animations with unique ids', () => {
     const ids = listAnimations().map((a) => a.id);
-    expect(ids).toEqual(['bloom', 'pulse', 'ripple', 'text-reveal', 'step-sequence']);
+    expect(ids).toEqual([
+      'ascii-garden',
+      'pressed-bloom',
+      'bloom',
+      'pulse',
+      'ripple',
+      'text-reveal',
+      'step-sequence',
+    ]);
     expect(new Set(ids).size).toBe(ids.length);
     expect(getAnimation('bloom')?.name).toBe('Bloom');
     expect(getAnimation('missing')).toBeUndefined();

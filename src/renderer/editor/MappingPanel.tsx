@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { ACTION_LABELS, MAPPABLE_ACTIONS, type Action } from '../actions';
 import { bindableParams, getAnimation } from '../animations';
 import {
@@ -15,24 +15,55 @@ import {
 } from '../deck';
 import {
   carriesValue,
-  learnSession,
+  controlOfMapping,
+  controlPicker,
+  describeInput,
+  mappingTouches,
   parseMappingFile,
   serialiseMappings,
+  triggerForControl,
   TRIGGER_LABELS,
   type Mapping,
   type Trigger,
   type TriggerKind,
 } from '../mapping';
-import { KeyboardDiagram, midi, useMidiStore } from '../midi';
+import {
+  controlLabel,
+  KeyboardDiagram,
+  KEY_COUNT,
+  keysWindow,
+  midi,
+  useMidiStore,
+  type ControlRef,
+} from '../midi';
 import { api } from '../shared/api';
 import { notify } from '../shared/notify';
+import { useSettings } from '../shared/settings';
 import { newId, noteName } from '../shared/util';
+import { ControllerMap, controlKey, type ControlMark } from './ControllerMap';
 import { CheckField, NumField, Section, SelectField, TextField } from './fields';
 import { useEditorUi } from './uiStore';
 
 type MappableType = (typeof MAPPABLE_ACTIONS)[number];
 
-const ZONE_COLOURS = ['#ff6b6b', '#ffb84d', '#6bd98a', '#5b8cff', '#c77dff', '#4dd0e1'];
+const ZONE_COLOURS = ['#d8a4af', '#c1bc77', '#afb8cd', '#ccc3d1', '#e3b57a', '#8d8b4c'];
+
+/** Actions that need a continuous value: they suit knobs and wheels. */
+const CONTINUOUS: readonly MappableType[] = ['anim.setParam'];
+
+/** The order actions are offered in, most used first. */
+const ACTION_ORDER: readonly MappableType[] = [
+  'nav.next',
+  'nav.prev',
+  'anim.trigger',
+  'anim.setParam',
+  'nav.gotoNamed',
+  'nav.goto',
+  'show.blackToggle',
+  'audio.togglePiano',
+  'view.toggleKeys',
+  'show.panic',
+];
 
 interface AnimationTarget {
   id: string;
@@ -82,6 +113,14 @@ function defaultAction(type: MappableType, deck: Deck, targets: AnimationTarget[
   }
 }
 
+function paramRange(action: Action, targets: AnimationTarget[]): { min: number; max: number } {
+  if (action.type !== 'anim.setParam') return { min: 0, max: 1 };
+  const target = targets.find((t) => t.id === action.elementId);
+  const def = target ? getAnimation(target.animationId) : undefined;
+  const p = def ? bindableParams(def).find((x) => x.key === action.param) : undefined;
+  return { min: p?.min ?? 0, max: p?.max ?? 1 };
+}
+
 function defaultTrigger(kind: TriggerKind, previous: Trigger): Trigger {
   const controller = 'controller' in previous ? previous.controller : 1;
   switch (kind) {
@@ -95,142 +134,36 @@ function defaultTrigger(kind: TriggerKind, previous: Trigger): Trigger {
   }
 }
 
-export function describeTrigger(m: Mapping): string {
-  const t = m.trigger;
-  const channel = m.filters.channel ? ` · ch ${m.filters.channel}` : '';
-  switch (t.kind) {
-    case 'noteOn':
-    case 'noteOff': {
-      const { noteFrom, noteTo } = m.filters;
-      const what = t.kind === 'noteOn' ? 'Press' : 'Release';
-      if (noteFrom === undefined && noteTo === undefined) return `${what} any key${channel}`;
-      const from = noteFrom ?? 0;
-      const to = noteTo ?? 127;
-      return from === to
-        ? `${what} ${noteName(from)}${channel}`
-        : `${what} ${noteName(from)}–${noteName(to)}${channel}`;
-    }
-    case 'ccAbove':
-      return `CC ${t.controller} rises past ${t.threshold}${channel}`;
-    case 'ccBelow':
-      return `CC ${t.controller} falls past ${t.threshold}${channel}`;
-    case 'ccValue':
-      return `CC ${t.controller} (knob)${channel}`;
-    case 'sustainDown':
-      return `Sustain pedal down${channel}`;
-    case 'sustainUp':
-      return `Sustain pedal up${channel}`;
-  }
-}
+const isKnobLike = (ref: ControlRef): boolean =>
+  ref.kind === 'knob' || ref.kind === 'mod' || ref.kind === 'cc';
 
-function MappingCard({
+// ── What a mapping does ─────────────────────────────────────────────────────
+
+function ActionDetails({
   mapping,
   scope,
   deck,
+  targets,
 }: {
   mapping: Mapping;
   scope: MappingScope;
   deck: Deck;
+  targets: AnimationTarget[];
 }) {
-  const learningId = useSyncExternalStore(learnSession.subscribe, () => learnSession.activeId);
-  const devices = useMidiStore((s) => s.devices);
-  const focusId = useEditorUi((s) => s.focusMappingId);
-  const [open, setOpen] = useState(focusId === mapping.id);
-  const cardRef = useRef<HTMLDivElement>(null);
-  const learning = learningId === mapping.id;
-  const targets = animationTargets(deck, scope);
-  const { action, trigger, filters } = mapping;
-
-  useEffect(() => {
-    if (focusId === mapping.id) {
-      cardRef.current?.scrollIntoView({ block: 'nearest' });
-      useEditorUi.setState({ focusMappingId: null });
-    }
-  }, [focusId, mapping.id]);
-
+  const { action } = mapping;
   const edit = (change: (m: Mapping) => void) => updateMapping(scope, mapping.id, change);
   const setAction = (next: Action) => edit((m) => void (m.action = next));
-
-  const learn = () => {
-    if (learning) {
-      learnSession.cancel();
-      return;
-    }
-    learnSession.start(mapping.id, action, (learned) =>
-      updateMapping(
-        scope,
-        mapping.id,
-        (m) => {
-          m.trigger = learned.trigger;
-          m.filters = {
-            ...m.filters,
-            noteFrom: learned.filters.noteFrom,
-            noteTo: learned.filters.noteTo,
-          };
-        },
-        false,
-      ),
-    );
-  };
-
-  const isNote = trigger.kind === 'noteOn' || trigger.kind === 'noteOff';
-  const anyNote = filters.noteFrom === undefined && filters.noteTo === undefined;
   const target = 'elementId' in action ? targets.find((t) => t.id === action.elementId) : undefined;
-  const targetDef = target ? getAnimation(target.animationId) : undefined;
-  const params = targetDef ? bindableParams(targetDef) : [];
-  const missingTarget = 'elementId' in action && !target;
+  const def = target ? getAnimation(target.animationId) : undefined;
+  const params = def ? bindableParams(def) : [];
   const missingSlide =
     action.type === 'nav.gotoNamed' && !deck.slides.some((s) => s.id === action.slideId);
-  const deviceNames = [
-    ...new Set([...devices.map((d) => d.name), ...(filters.device ? [filters.device] : [])]),
-  ];
 
   return (
-    <div
-      className={`mapping${mapping.enabled ? '' : ' disabled'}${learning ? ' learning' : ''}`}
-      ref={cardRef}
-      data-testid="mapping-card"
-    >
-      <div className="mapping-head">
-        <input
-          type="checkbox"
-          checked={mapping.enabled}
-          title="Enabled"
-          onChange={(e) => edit((m) => void (m.enabled = e.target.checked))}
-        />
-        <select
-          className="mapping-action"
-          data-testid="mapping-action"
-          value={action.type}
-          onChange={(e) => setAction(defaultAction(e.target.value as MappableType, deck, targets))}
-        >
-          {MAPPABLE_ACTIONS.map((type) => (
-            <option key={type} value={type}>
-              {ACTION_LABELS[type]}
-            </option>
-          ))}
-        </select>
-        <button
-          className={learning ? 'learn active' : 'learn'}
-          onClick={learn}
-          data-testid="mapping-learn"
-        >
-          {learning ? 'Listening…' : 'Learn'}
-        </button>
-      </div>
-      <div className="mapping-summary" onClick={() => setOpen(!open)} data-testid="mapping-summary">
-        <span>{learning ? 'Press a key or move a knob' : describeTrigger(mapping)}</span>
-        <span className="chevron">{open ? '▾' : '▸'}</span>
-      </div>
-      {(missingTarget || missingSlide) && (
-        <p className="hint warn">
-          {missingSlide
-            ? 'The slide this pointed to no longer exists.'
-            : 'Choose which animation this controls.'}
-        </p>
+    <>
+      {missingSlide && (
+        <p className="hint warn">The slide this pointed to no longer exists. Choose another.</p>
       )}
-
-      {/* Action details are always visible: they decide what the key does. */}
       {action.type === 'nav.goto' && (
         <NumField
           label="Slide number"
@@ -254,10 +187,10 @@ function MappingCard({
       )}
       {(action.type === 'anim.trigger' || action.type === 'anim.setParam') &&
         (targets.length === 0 ? (
-          <p className="hint">
+          <p className="hint warn">
             {scope.kind === 'slide'
-              ? 'This slide has no animations yet.'
-              : 'The deck has no animations yet.'}
+              ? 'This slide has no animations yet. Add one from the toolbar first.'
+              : 'The deck has no animations yet. Add one from the toolbar first.'}
           </p>
         ) : (
           <SelectField
@@ -265,35 +198,35 @@ function MappingCard({
             wide
             value={action.elementId}
             options={[
-              ...(target ? [] : [{ value: action.elementId, label: 'Choose…' }]),
+              ...(target ? [] : [{ value: action.elementId, label: 'Choose an animation' }]),
               ...targets.map((t) => ({ value: t.id, label: t.label })),
             ]}
             onChange={(elementId) => {
               if (action.type === 'anim.trigger') {
                 setAction({ ...action, elementId });
-              } else {
-                const def = getAnimation(
-                  targets.find((t) => t.id === elementId)?.animationId ?? '',
-                );
-                const first = def ? bindableParams(def)[0] : undefined;
-                setAction({
-                  ...action,
-                  elementId,
-                  param: first?.key ?? '',
-                  value: first?.default ?? 0,
-                });
-                edit((m) => {
-                  m.min = first?.min ?? 0;
-                  m.max = first?.max ?? 1;
-                });
+                return;
               }
+              const nextDef = getAnimation(
+                targets.find((t) => t.id === elementId)?.animationId ?? '',
+              );
+              const first = nextDef ? bindableParams(nextDef)[0] : undefined;
+              setAction({
+                ...action,
+                elementId,
+                param: first?.key ?? '',
+                value: first?.default ?? 0,
+              });
+              edit((m) => {
+                m.min = first?.min ?? 0;
+                m.max = first?.max ?? 1;
+              });
             }}
           />
         ))}
       {action.type === 'anim.setParam' && params.length > 0 && (
         <div className="grid2">
           <SelectField
-            label="Parameter"
+            label="Value to change"
             value={action.param}
             options={params.map((p) => ({ value: p.key, label: p.label }))}
             onChange={(param) => {
@@ -307,7 +240,7 @@ function MappingCard({
           />
           {!carriesValue(mapping) && (
             <NumField
-              label="Set to"
+              label="Set it to"
               value={action.value}
               step={0.01}
               onChange={(value) => setAction({ ...action, value })}
@@ -315,164 +248,387 @@ function MappingCard({
           )}
         </div>
       )}
+    </>
+  );
+}
 
-      {open && (
-        <div className="mapping-details">
-          <SelectField<TriggerKind>
-            label="When"
-            wide
-            value={trigger.kind}
-            options={(Object.keys(TRIGGER_LABELS) as TriggerKind[]).map((k) => ({
-              value: k,
-              label: TRIGGER_LABELS[k],
-            }))}
-            onChange={(kind) => edit((m) => void (m.trigger = defaultTrigger(kind, m.trigger)))}
+function MoreOptions({ mapping, scope }: { mapping: Mapping; scope: MappingScope }) {
+  const devices = useMidiStore((s) => s.devices);
+  const { trigger, filters, action } = mapping;
+  const edit = (change: (m: Mapping) => void) => updateMapping(scope, mapping.id, change);
+  const isNote = trigger.kind === 'noteOn' || trigger.kind === 'noteOff';
+  const anyNote = filters.noteFrom === undefined && filters.noteTo === undefined;
+  const deviceNames = [
+    ...new Set([...devices.map((d) => d.name), ...(filters.device ? [filters.device] : [])]),
+  ];
+
+  return (
+    <div className="mapping-details">
+      <SelectField<TriggerKind>
+        label="Fires when"
+        wide
+        value={trigger.kind}
+        options={(Object.keys(TRIGGER_LABELS) as TriggerKind[]).map((k) => ({
+          value: k,
+          label: TRIGGER_LABELS[k],
+        }))}
+        onChange={(kind) => edit((m) => void (m.trigger = defaultTrigger(kind, m.trigger)))}
+      />
+      <div className="grid2">
+        {'controller' in trigger && (
+          <NumField
+            label="CC number"
+            value={trigger.controller}
+            min={0}
+            max={127}
+            onChange={(controller) =>
+              edit((m) => 'controller' in m.trigger && void (m.trigger.controller = controller))
+            }
           />
-          <div className="grid2">
-            {'controller' in trigger && (
-              <NumField
-                label="CC number"
-                value={trigger.controller}
-                min={0}
-                max={127}
-                onChange={(controller) =>
-                  edit((m) => 'controller' in m.trigger && void (m.trigger.controller = controller))
-                }
-              />
-            )}
-            {'threshold' in trigger && (
-              <NumField
-                label="Threshold"
-                value={trigger.threshold}
-                min={0}
-                max={127}
-                onChange={(threshold) =>
-                  edit((m) => 'threshold' in m.trigger && void (m.trigger.threshold = threshold))
-                }
-              />
-            )}
-          </div>
-          {isNote && (
-            <>
-              <CheckField
-                label="Any key"
-                value={anyNote}
-                onChange={(any) =>
-                  edit((m) => {
-                    m.filters.noteFrom = any ? undefined : 60;
-                    m.filters.noteTo = any ? undefined : 60;
-                  })
-                }
-              />
-              {!anyNote && (
-                <div className="grid2">
-                  <NumField
-                    label={`From (${noteName(filters.noteFrom ?? 0)})`}
-                    value={filters.noteFrom ?? 0}
-                    min={0}
-                    max={127}
-                    onChange={(n) => edit((m) => void (m.filters.noteFrom = n))}
-                  />
-                  <NumField
-                    label={`To (${noteName(filters.noteTo ?? 127)})`}
-                    value={filters.noteTo ?? 127}
-                    min={0}
-                    max={127}
-                    onChange={(n) => edit((m) => void (m.filters.noteTo = n))}
-                  />
-                </div>
-              )}
-            </>
-          )}
-          {trigger.kind === 'noteOn' && (
+        )}
+        {'threshold' in trigger && (
+          <NumField
+            label="Threshold (0–127)"
+            value={trigger.threshold}
+            min={0}
+            max={127}
+            onChange={(threshold) =>
+              edit((m) => 'threshold' in m.trigger && void (m.trigger.threshold = threshold))
+            }
+          />
+        )}
+      </div>
+      {isNote && (
+        <>
+          <CheckField
+            label="Any key"
+            value={anyNote}
+            onChange={(any) =>
+              edit((m) => {
+                m.filters.noteFrom = any ? undefined : 60;
+                m.filters.noteTo = any ? undefined : 60;
+              })
+            }
+          />
+          {!anyNote && (
             <div className="grid2">
               <NumField
-                label="Min velocity"
-                value={filters.velocityMin ?? 0}
+                label={`From ${noteName(filters.noteFrom ?? 0)}`}
+                value={filters.noteFrom ?? 0}
                 min={0}
                 max={127}
-                onChange={(n) => edit((m) => void (m.filters.velocityMin = n <= 0 ? undefined : n))}
+                onChange={(n) => edit((m) => void (m.filters.noteFrom = n))}
               />
               <NumField
-                label="Max velocity"
-                value={filters.velocityMax ?? 127}
+                label={`To ${noteName(filters.noteTo ?? 127)}`}
+                value={filters.noteTo ?? 127}
                 min={0}
                 max={127}
-                onChange={(n) =>
-                  edit((m) => void (m.filters.velocityMax = n >= 127 ? undefined : n))
-                }
+                onChange={(n) => edit((m) => void (m.filters.noteTo = n))}
               />
             </div>
           )}
+        </>
+      )}
+      {trigger.kind === 'noteOn' && (
+        <div className="grid2">
+          <NumField
+            label="Softest hit"
+            value={filters.velocityMin ?? 0}
+            min={0}
+            max={127}
+            onChange={(n) => edit((m) => void (m.filters.velocityMin = n <= 0 ? undefined : n))}
+          />
+          <NumField
+            label="Hardest hit"
+            value={filters.velocityMax ?? 127}
+            min={0}
+            max={127}
+            onChange={(n) => edit((m) => void (m.filters.velocityMax = n >= 127 ? undefined : n))}
+          />
+        </div>
+      )}
+      <div className="grid2">
+        <SelectField
+          label="Channel"
+          value={String(filters.channel ?? 0)}
+          options={[
+            { value: '0', label: 'Any' },
+            ...Array.from({ length: 16 }, (_, i) => ({
+              value: String(i + 1),
+              label: String(i + 1),
+            })),
+          ]}
+          onChange={(v) =>
+            edit((m) => void (m.filters.channel = v === '0' ? undefined : Number(v)))
+          }
+        />
+        <SelectField
+          label="Device"
+          value={filters.device ?? ''}
+          options={[
+            { value: '', label: 'Any' },
+            ...deviceNames.map((d) => ({ value: d, label: d })),
+          ]}
+          onChange={(v) => edit((m) => void (m.filters.device = v || undefined))}
+        />
+      </div>
+      {carriesValue(mapping) &&
+        (action.type === 'anim.trigger' || action.type === 'anim.setParam') && (
           <div className="grid2">
             <SelectField
-              label="Channel"
-              value={String(filters.channel ?? 0)}
+              label="Response"
+              value={mapping.curve}
               options={[
-                { value: '0', label: 'Any' },
-                ...Array.from({ length: 16 }, (_, i) => ({
-                  value: String(i + 1),
-                  label: String(i + 1),
-                })),
+                { value: 'linear', label: 'Even' },
+                { value: 'exponential', label: 'Gentle, then fast' },
+                { value: 'logarithmic', label: 'Fast, then gentle' },
               ]}
-              onChange={(v) =>
-                edit((m) => void (m.filters.channel = v === '0' ? undefined : Number(v)))
-              }
+              onChange={(curve) => edit((m) => void (m.curve = curve))}
             />
-            <SelectField
-              label="Device"
-              value={filters.device ?? ''}
-              options={[
-                { value: '', label: 'Any' },
-                ...deviceNames.map((d) => ({ value: d, label: d })),
-              ]}
-              onChange={(v) => edit((m) => void (m.filters.device = v || undefined))}
+            <span />
+            <NumField
+              label="At the bottom"
+              value={mapping.min}
+              step={0.01}
+              onChange={(min) => edit((m) => void (m.min = min))}
+            />
+            <NumField
+              label="At the top"
+              value={mapping.max}
+              step={0.01}
+              onChange={(max) => edit((m) => void (m.max = max))}
             />
           </div>
-          {carriesValue(mapping) &&
-            (action.type === 'anim.trigger' || action.type === 'anim.setParam') && (
-              <div className="grid2">
-                <SelectField
-                  label="Value curve"
-                  value={mapping.curve}
-                  options={[
-                    { value: 'linear', label: 'Linear' },
-                    { value: 'exponential', label: 'Exponential' },
-                    { value: 'logarithmic', label: 'Logarithmic' },
-                  ]}
-                  onChange={(curve) => edit((m) => void (m.curve = curve))}
-                />
-                <span />
-                <NumField
-                  label="At lowest"
-                  value={mapping.min}
-                  step={0.01}
-                  onChange={(min) => edit((m) => void (m.min = min))}
-                />
-                <NumField
-                  label="At highest"
-                  value={mapping.max}
-                  step={0.01}
-                  onChange={(max) => edit((m) => void (m.max = max))}
-                />
-              </div>
-            )}
-          <TextField
-            label="Label (optional)"
-            value={mapping.name}
-            onChange={(name) => edit((m) => void (m.name = name))}
+        )}
+      <TextField
+        label="Note to self (optional)"
+        value={mapping.name}
+        onChange={(name) => edit((m) => void (m.name = name))}
+      />
+    </div>
+  );
+}
+
+/** One mapping: what it does, its details, and the rarely needed options. */
+function MappingEditor({
+  mapping,
+  scope,
+  deck,
+  targets,
+}: {
+  mapping: Mapping;
+  scope: MappingScope;
+  deck: Deck;
+  targets: AnimationTarget[];
+}) {
+  const [more, setMore] = useState(false);
+  const knob =
+    mapping.trigger.kind === 'ccValue' ||
+    mapping.trigger.kind === 'ccAbove' ||
+    mapping.trigger.kind === 'ccBelow';
+
+  const changeAction = (type: MappableType) => {
+    const next = defaultAction(type, deck, targets);
+    updateMapping(
+      scope,
+      mapping.id,
+      (m) => {
+        m.action = next;
+        const range = paramRange(next, targets);
+        m.min = range.min;
+        m.max = range.max;
+        // A knob setting a value moves smoothly; a knob doing a one-off action fires once past halfway.
+        if (knob && 'controller' in m.trigger) {
+          const controller = m.trigger.controller;
+          m.trigger = CONTINUOUS.includes(type)
+            ? { kind: 'ccValue', controller }
+            : { kind: 'ccAbove', controller, threshold: 64 };
+        }
+      },
+      false,
+    );
+  };
+
+  return (
+    <div className={`mapping${mapping.enabled ? '' : ' disabled'}`} data-testid="mapping-card">
+      <div className="mapping-head">
+        <select
+          className="mapping-action"
+          data-testid="mapping-action"
+          value={mapping.action.type}
+          onChange={(e) => changeAction(e.target.value as MappableType)}
+        >
+          {ACTION_ORDER.map((type) => (
+            <option key={type} value={type}>
+              {ACTION_LABELS[type]}
+            </option>
+          ))}
+        </select>
+        <label className="switch" title={mapping.enabled ? 'On' : 'Off'}>
+          <input
+            type="checkbox"
+            checked={mapping.enabled}
+            onChange={(e) =>
+              updateMapping(scope, mapping.id, (m) => void (m.enabled = e.target.checked))
+            }
           />
+          <span>{mapping.enabled ? 'On' : 'Off'}</span>
+        </label>
+      </div>
+      <ActionDetails mapping={mapping} scope={scope} deck={deck} targets={targets} />
+      <div className="mapping-foot">
+        <button className="link" onClick={() => setMore(!more)} aria-expanded={more}>
+          {more ? 'Fewer options' : 'More options'}
+        </button>
+        <button
+          className="link danger"
+          onClick={() => deleteMapping(scope, mapping.id)}
+          data-testid="mapping-delete"
+        >
+          Remove
+        </button>
+      </div>
+      {more && <MoreOptions mapping={mapping} scope={scope} />}
+    </div>
+  );
+}
+
+// ── The chosen control ──────────────────────────────────────────────────────
+
+function ControlEditor({
+  control,
+  scope,
+  deck,
+  list,
+}: {
+  control: ControlRef;
+  scope: MappingScope;
+  deck: Deck;
+  list: readonly Mapping[];
+}) {
+  const profile = useSettings((s) => s.controller);
+  const targets = animationTargets(deck, scope);
+  const name = controlLabel(control, noteName);
+  const mine = list.filter((m) => mappingTouches(m, control, profile));
+
+  if (control.kind === 'pitch') {
+    return (
+      <div className="control-editor" data-testid="control-editor">
+        <h4 className="control-name">Pitch wheel</h4>
+        <p className="hint">
+          The pitch wheel bends values rather than firing actions. To steer an animation with it,
+          select the animation and add a binding from Pitch bend in Properties. The ASCII garden and
+          Pressed flowers lean with it on their own.
+        </p>
+      </div>
+    );
+  }
+
+  const add = (type: MappableType) => {
+    const action = defaultAction(type, deck, targets);
+    const made = triggerForControl(control, profile, CONTINUOUS.includes(type));
+    if (!made) return;
+    const range = paramRange(action, targets);
+    addMapping(scope, {
+      id: newId('map'),
+      name: '',
+      enabled: true,
+      trigger: made.trigger,
+      filters: made.filters,
+      action,
+      curve: 'linear',
+      min: range.min,
+      max: range.max,
+    });
+  };
+
+  const offered = isKnobLike(control)
+    ? (['anim.setParam', ...ACTION_ORDER.filter((a) => a !== 'anim.setParam')] as MappableType[])
+    : ACTION_ORDER.filter((a) => a !== 'anim.setParam' || control.kind !== 'sustain');
+
+  return (
+    <div className="control-editor" data-testid="control-editor">
+      <h4 className="control-name" data-testid="control-name">
+        {name}
+        {control.kind === 'knob' && <span className="muted"> sends CC {control.cc}</span>}
+        {control.kind === 'pad' && <span className="muted"> sends {noteName(control.note)}</span>}
+      </h4>
+      {mine.length === 0 ? (
+        <>
+          <p className="hint">
+            {name} does nothing {scope.kind === 'slide' ? 'on this slide' : 'yet'}. Choose what it
+            does:
+          </p>
+          <div className="action-chips">
+            {offered.map((type) => (
+              <button key={type} onClick={() => add(type)} data-testid={`action-${type}`}>
+                {ACTION_LABELS[type]}
+              </button>
+            ))}
+          </div>
+        </>
+      ) : (
+        <>
+          {mine.map((mapping) => (
+            <MappingEditor
+              key={mapping.id}
+              mapping={mapping}
+              scope={scope}
+              deck={deck}
+              targets={targets}
+            />
+          ))}
           <button
-            className="link danger"
-            onClick={() => deleteMapping(scope, mapping.id)}
-            data-testid="mapping-delete"
+            className="link"
+            onClick={() => add(isKnobLike(control) ? 'anim.setParam' : 'nav.next')}
           >
-            Delete mapping
+            Add another action to {name}
           </button>
-        </div>
+        </>
       )}
     </div>
   );
+}
+
+// ── Everything mapped, as sentences ─────────────────────────────────────────
+
+function actionSentence(m: Mapping, deck: Deck): string {
+  const a = m.action;
+  const label = ACTION_LABELS[a.type as MappableType] ?? a.type;
+  const elementName = (id: string): string => {
+    for (const slide of deck.slides) {
+      const el = slide.elements.find((e) => e.id === id);
+      if (el && el.type === 'animation')
+        return el.name || getAnimation(el.animationId)?.name || 'animation';
+    }
+    return 'a missing animation';
+  };
+  switch (a.type) {
+    case 'nav.goto':
+      return `Go to slide ${a.index + 1}`;
+    case 'nav.gotoNamed': {
+      const i = deck.slides.findIndex((s) => s.id === a.slideId);
+      return i < 0
+        ? 'Go to a missing slide'
+        : `Go to “${deck.slides[i]?.name || `slide ${i + 1}`}”`;
+    }
+    case 'anim.trigger':
+      return `Play ${elementName(a.elementId)}`;
+    case 'anim.setParam':
+      return `Change ${a.param} of ${elementName(a.elementId)}`;
+    default:
+      return label;
+  }
+}
+
+// ── Zones ───────────────────────────────────────────────────────────────────
+
+function clampNote(raw: string, fallback: number): number {
+  const n = Number(raw);
+  return raw.trim() !== '' && Number.isFinite(n)
+    ? Math.min(127, Math.max(0, Math.round(n)))
+    : fallback;
 }
 
 function Zones({ deck }: { deck: Deck }) {
@@ -487,21 +643,23 @@ function Zones({ deck }: { deck: Deck }) {
               name:
                 ['navigation', 'explainer', 'free play'][deck.zones.length] ??
                 `zone ${deck.zones.length + 1}`,
-              colour: ZONE_COLOURS[deck.zones.length % ZONE_COLOURS.length] ?? '#5b8cff',
-              fromNote: Math.min(115, 36 + deck.zones.length * 12),
-              toNote: Math.min(127, 47 + deck.zones.length * 12),
+              colour: ZONE_COLOURS[deck.zones.length % ZONE_COLOURS.length] ?? '#d8a4af',
+              fromNote: Math.min(115, 48 + deck.zones.length * 12),
+              toNote: Math.min(127, 59 + deck.zones.length * 12),
             })
           }
         >
-          + Zone
+          Add zone
         </button>
       }
     >
-      <KeyboardDiagram zones={deck.zones} input={midi.input} />
+      {deck.zones.length > 0 && (
+        <KeyboardDiagram zones={deck.zones} input={midi.input} from={36} to={84} />
+      )}
       {deck.zones.length === 0 && (
         <p className="hint">
-          Name ranges of keys (navigation, explainer, free play) to see them in colour and to aim
-          animations at them.
+          Name a run of keys (say, the top octave for your explainer) to see it in colour and to aim
+          animations at it.
         </p>
       )}
       {deck.zones.map((zone) => (
@@ -536,7 +694,12 @@ function Zones({ deck }: { deck: Deck }) {
               updateZone(zone.id, (z) => void (z.toNote = clampNote(e.target.value, z.toNote)))
             }
           />
-          <button className="icon" title="Delete zone" onClick={() => deleteZone(zone.id)}>
+          <button
+            className="icon"
+            title="Delete zone"
+            aria-label="Delete zone"
+            onClick={() => deleteZone(zone.id)}
+          >
             ✕
           </button>
         </div>
@@ -545,52 +708,86 @@ function Zones({ deck }: { deck: Deck }) {
   );
 }
 
-function clampNote(raw: string, fallback: number): number {
-  const n = Number(raw);
-  return raw.trim() !== '' && Number.isFinite(n)
-    ? Math.min(127, Math.max(0, Math.round(n)))
-    : fallback;
-}
+// ── The panel ───────────────────────────────────────────────────────────────
 
-/** MIDI → action mappings for the whole deck or just the current slide, plus zones and import/export. */
+/**
+ * MIDI mapping, shown on the controller itself: pick a pad, key or knob (by
+ * pressing it or clicking it), then pick what it does. Mappings apply to the
+ * whole deck, or only to the current slide, where they win.
+ */
 export function MappingPanel() {
   const deck = useDeckStore((s) => s.deck);
   const slideId = useDeckStore((s) => s.currentSlideId);
+  const profile = useSettings((s) => s.controller);
   const [scopeKind, setScopeKind] = useState<'global' | 'slide'>('global');
-  if (!deck || !slideId) return null;
+  const [selected, setSelected] = useState<ControlRef | null>(null);
+  const [picking, setPicking] = useState(true);
+  const [low, setLow] = useState(profile.keysLow);
+  const focusId = useEditorUi((s) => s.focusMappingId);
 
-  const scope: MappingScope =
-    scopeKind === 'global' ? { kind: 'global' } : { kind: 'slide', slideId };
-  const slide = deck.slides.find((s) => s.id === slideId);
-  const list = scopeKind === 'global' ? deck.mappings : (slide?.mappings ?? []);
-
-  const add = () => {
-    const mapping: Mapping = {
-      id: newId('map'),
-      name: '',
-      enabled: true,
-      trigger: { kind: 'noteOn' },
-      filters: {},
-      action: { type: 'nav.next' },
-      curve: 'linear',
-      min: 0,
-      max: 1,
+  // Pick by pressing while this panel is open; polled ten times a second.
+  useEffect(() => {
+    controlPicker.enabled = picking;
+    let seen = controlPicker.latest?.seq ?? 0;
+    const timer = setInterval(() => {
+      const latest = controlPicker.latest;
+      if (!latest || latest.seq === seen) return;
+      seen = latest.seq;
+      setSelected(latest.ref);
+      if (latest.ref.kind === 'key') {
+        setLow((current) => keysWindow(current, [(latest.ref as { note: number }).note]));
+      }
+    }, 100);
+    return () => {
+      clearInterval(timer);
+      controlPicker.enabled = false;
     };
-    addMapping(scope, mapping);
-    useEditorUi.setState({ focusMappingId: mapping.id });
-    // Go straight into Learn: the next key pressed becomes the trigger.
-    learnSession.start(mapping.id, mapping.action, (learned) =>
-      updateMapping(
-        scope,
-        mapping.id,
-        (m) => {
-          m.trigger = learned.trigger;
-          m.filters = { ...m.filters, ...learned.filters };
-        },
-        false,
-      ),
-    );
-  };
+  }, [picking]);
+
+  // Arriving from "Map a key" in Properties: show the new mapping's control.
+  useEffect(() => {
+    if (!focusId || !deck) return;
+    const slide = deck.slides.find((s) => s.id === slideId);
+    const inSlide = slide?.mappings.find((m) => m.id === focusId);
+    const found = inSlide ?? deck.mappings.find((m) => m.id === focusId);
+    if (found) {
+      setScopeKind(inSlide ? 'slide' : 'global');
+      setSelected(controlOfMapping(found, profile));
+    }
+    useEditorUi.setState({ focusMappingId: null });
+  }, [focusId, deck, slideId, profile]);
+
+  const slide = deck?.slides.find((s) => s.id === slideId);
+  const scope: MappingScope =
+    scopeKind === 'global' || !slideId ? { kind: 'global' } : { kind: 'slide', slideId };
+  const list = useMemo(
+    () => (scopeKind === 'global' ? (deck?.mappings ?? []) : (slide?.mappings ?? [])),
+    [scopeKind, deck, slide],
+  );
+
+  const { marks, ranges } = useMemo(() => {
+    const out = new Map<string, ControlMark>();
+    const spans: { from: number; to: number }[] = [];
+    const add = (m: Mapping, slideOnly: boolean) => {
+      if (!m.enabled || !deck) return;
+      const ref = controlOfMapping(m, profile);
+      if (ref) {
+        const key = controlKey(ref);
+        const prev = out.get(key);
+        out.set(key, {
+          title: prev ? `${prev.title}; ${actionSentence(m, deck)}` : actionSentence(m, deck),
+          slideOnly: prev ? prev.slideOnly && slideOnly : slideOnly,
+        });
+      } else if (m.trigger.kind === 'noteOn' || m.trigger.kind === 'noteOff') {
+        spans.push({ from: m.filters.noteFrom ?? 0, to: m.filters.noteTo ?? 127 });
+      }
+    };
+    for (const m of deck?.mappings ?? []) add(m, false);
+    if (scopeKind === 'slide') for (const m of slide?.mappings ?? []) add(m, true);
+    return { marks: out, ranges: spans };
+  }, [deck, slide, scopeKind, profile]);
+
+  if (!deck || !slideId) return null;
 
   const exportFile = async () => {
     const result = await api().saveTextFile({
@@ -624,50 +821,148 @@ export function MappingPanel() {
 
   return (
     <div className="panel-scroll" data-testid="mapping-panel">
-      <div className="segmented">
+      <div className="segmented" role="tablist">
         <button
           className={scopeKind === 'global' ? 'on' : ''}
           onClick={() => setScopeKind('global')}
+          data-testid="scope-global"
         >
-          Whole deck ({deck.mappings.length})
+          Every slide <span className="count">{deck.mappings.length}</span>
         </button>
         <button
           className={scopeKind === 'slide' ? 'on' : ''}
           onClick={() => setScopeKind('slide')}
           data-testid="scope-slide"
         >
-          This slide ({slide?.mappings.length ?? 0})
+          This slide only <span className="count">{slide?.mappings.length ?? 0}</span>
         </button>
       </div>
-      <p className="hint">
-        {scopeKind === 'global'
-          ? 'These work on every slide.'
-          : 'These work only on this slide, and win over whole-deck mappings for the same key.'}
-      </p>
-      <Section
-        title="Mappings"
-        actions={
-          <button className="primary" onClick={add} data-testid="add-mapping">
-            + Map a key
-          </button>
-        }
-      >
-        {list.length === 0 && (
-          <p className="hint">
-            Nothing mapped yet. Click “Map a key”, then press the key or move the knob.
-          </p>
-        )}
-        {list.map((mapping) => (
-          <MappingCard key={mapping.id} mapping={mapping} scope={scope} deck={deck} />
-        ))}
-      </Section>
-      <Zones deck={deck} />
-      <Section title="Reuse across decks">
-        <div className="row">
-          <button onClick={() => void exportFile()}>Export mappings…</button>
-          <button onClick={() => void importFile()}>Import mappings…</button>
+
+      <div className="map-stage">
+        <div className="map-bar">
+          <label
+            className={picking ? 'pick on' : 'pick'}
+            title="While on, pressing a control selects it here instead of doing what it is mapped to"
+          >
+            <input
+              type="checkbox"
+              checked={picking}
+              onChange={(e) => setPicking(e.target.checked)}
+              data-testid="pick-toggle"
+            />
+            <span>{picking ? 'Press a control to choose it' : 'Mappings are live: try them'}</span>
+          </label>
+          <span className="octave">
+            <button
+              className="icon"
+              aria-label="Octave down"
+              onClick={() => setLow((l) => Math.max(0, l - 12))}
+            >
+              −
+            </button>
+            <code>
+              {noteName(low)}–{noteName(low + KEY_COUNT - 1)}
+            </code>
+            <button
+              className="icon"
+              aria-label="Octave up"
+              onClick={() => setLow((l) => Math.min(103, l + 12))}
+            >
+              +
+            </button>
+          </span>
         </div>
-        <p className="hint">Exports the whole-deck mappings and zones as a JSON file.</p>
+        <ControllerMap
+          profile={profile}
+          low={low}
+          selected={selected}
+          marks={marks}
+          ranges={ranges}
+          input={midi.input}
+          onSelect={setSelected}
+        />
+        <p className="map-legend">
+          <span className="legend-dot" /> mapped for every slide
+          {scopeKind === 'slide' && (
+            <>
+              <span className="legend-dot slide-only" /> this slide only
+            </>
+          )}
+        </p>
+      </div>
+
+      {selected ? (
+        <ControlEditor control={selected} scope={scope} deck={deck} list={list} />
+      ) : (
+        <p className="hint pick-hint">
+          Press a pad, key or knob on your MPK mini, or click one above, to choose what it does
+          {scopeKind === 'slide' ? ' on this slide' : ''}.
+        </p>
+      )}
+
+      <Section title={scopeKind === 'global' ? 'Mapped for every slide' : 'Mapped on this slide'}>
+        {list.length === 0 && <p className="hint">Nothing yet.</p>}
+        <ul className="mapping-list" data-testid="mapping-list">
+          {list.map((m) => {
+            const ref = controlOfMapping(m, profile);
+            return (
+              <li key={m.id} className={m.enabled ? '' : 'off'}>
+                <button
+                  className="mapping-line"
+                  onClick={() => ref && setSelected(ref)}
+                  disabled={!ref}
+                  title={ref ? 'Show on the controller' : 'Covers several keys: edit it below'}
+                >
+                  <code className="mapping-input" data-testid="mapping-input">
+                    {describeInput(m, profile)}
+                  </code>
+                  <span className="mapping-arrow" aria-hidden>
+                    ⟶
+                  </span>
+                  <span className="mapping-what">{m.name || actionSentence(m, deck)}</span>
+                </button>
+                {!ref && (
+                  <MappingEditor
+                    mapping={m}
+                    scope={scope}
+                    deck={deck}
+                    targets={animationTargets(deck, scope)}
+                  />
+                )}
+              </li>
+            );
+          })}
+        </ul>
+        <button
+          className="link"
+          onClick={() =>
+            addMapping(scope, {
+              id: newId('map'),
+              name: '',
+              enabled: true,
+              trigger: { kind: 'noteOn' },
+              filters: { noteFrom: low, noteTo: low + 11 },
+              action: { type: 'nav.next' },
+              curve: 'linear',
+              min: 0,
+              max: 1,
+            })
+          }
+        >
+          Map a run of keys
+        </button>
+      </Section>
+
+      <Zones deck={deck} />
+
+      <Section title="Reuse in another deck">
+        <div className="row">
+          <button onClick={() => void exportFile()}>Export mappings</button>
+          <button onClick={() => void importFile()}>Import mappings</button>
+        </div>
+        <p className="hint">
+          Saves the every-slide mappings and zones as a file you can import into another deck.
+        </p>
       </Section>
     </div>
   );

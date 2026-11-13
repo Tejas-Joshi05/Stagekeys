@@ -18,3 +18,5 @@ export {
   type NoteZone,
 } from './host';
 export { getAnimation, listAnimations } from './registry';
+export { flowerImage, FLOWERS, plantImage, PLANTS, preloadArt } from './art';
+export { hash as asciiHash, inkToGlyph, RAMP, RAMP_MAX } from './glyphs';

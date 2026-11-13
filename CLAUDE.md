@@ -42,6 +42,9 @@ Gotchas:
 - TypeScript is pinned to 6.0.x because typescript-eslint does not support 7 yet.
 - Never reuse a `<canvas>` after destroying its Pixi renderer; it freezes the window. Mount a new canvas.
 - Zustand selectors must return stable references. Wrap selectors that build arrays in `useShallow`.
+- App settings (piano, keys picture, MPK layout) live in `settings.json` via main, not in decks. Change them with `updateSettings` from `shared/settings.ts`.
+- The Mapping tab turns on `controlPicker`: presses choose a control instead of firing mappings. Tests that need a mapping to fire must leave that tab or untick "Press a control to choose it".
+- Riso artwork is imported with `?inline` on purpose (canvas readback from `file://`). Keep it that way.
 - E2E hooks: `STAGEKEYS_E2E=1` swaps dialogs for `STAGEKEYS_E2E_*` paths, uses mock MIDI and exposes `window.__stagekeysMidi(bytes)`.
 
 ## Folder map
@@ -49,7 +52,7 @@ Gotchas:
 ```
 src/main/        thin main process
 src/preload/     the only bridge to the renderer
-src/ipc/         IPC contract shared by main and renderer
+src/ipc/         IPC contract and app settings schema shared by main and renderer
 src/renderer/
   app/           startup wiring, control-window action handlers, welcome screen, styles
   actions/       Action union, dispatcher, keyboard shortcuts
@@ -58,9 +61,10 @@ src/renderer/
   deck/          schema, migrations, store, undo/redo commands, persistence
   editor/        slide list, canvas tools, properties panel, notes
   render/        PixiJS slide renderer shared by editor, stage and export
-  animations/    registry, host, built-ins (one file each)
+  animations/    registry, host, built-ins (one file each), riso art + glyph atlas
+  audio/         optional piano (Web Audio), fed from the MIDI bus
   presenter/     show engine, presenter view, transitions, rehearsal
-  shared/        small utilities only
+  shared/        small utilities, settings store
 tests/e2e/       Playwright Electron smoke tests
 docs/            ARCHITECTURE.md, ADDING_ANIMATIONS.md, decisions/
 ```

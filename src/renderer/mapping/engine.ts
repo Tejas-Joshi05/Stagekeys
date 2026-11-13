@@ -1,5 +1,6 @@
 import type { Action, ActionSource } from '../actions';
 import type { MidiBus } from '../midi';
+import type { ControlPicker } from './controls';
 import type { LearnSession } from './learn';
 import { actionFor, resolveMappings } from './match';
 import type { Mapping } from './types';
@@ -10,6 +11,8 @@ export interface MappingEngineOptions {
   /** Called per message, so it must be cheap: return the current arrays, do not build new ones. */
   getMappings: () => { slide: readonly Mapping[]; global: readonly Mapping[] };
   learn?: LearnSession;
+  /** While picking by pressing, controls select themselves in the editor instead of acting. */
+  picker?: ControlPicker;
   /** Return false to ignore MIDI entirely (e.g. while this window is not driving the show). */
   isActive?: () => boolean;
 }
@@ -22,7 +25,7 @@ export interface MappingEngineOptions {
 export function startMappingEngine(options: MappingEngineOptions): () => void {
   return options.bus.subscribe((message, previousCc) => {
     if (options.isActive && !options.isActive()) return;
-    if (options.learn?.offer(message)) {
+    if (options.learn?.offer(message) || options.picker?.offer(message)) {
       message.consumed = true;
       return;
     }

@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import type { Action } from '../actions';
 import { flushSaves, getCurrentSlideIndex, serialiseDeck, useDeckStore } from '../deck';
+import { MidiInputState } from '../midi';
 import { api } from '../shared/api';
 import { logger } from '../shared/log';
 import { notify } from '../shared/notify';
@@ -61,6 +62,24 @@ interface BridgeHooks {
   onShowEnded: () => void;
 }
 
+/** A mirror of the stage's MIDI state, for the keys picture in the presenter view. */
+export const presenterInput = new MidiInputState();
+
+function mirrorInput(state: StageState): void {
+  const input = presenterInput;
+  input.held.clear();
+  input.heldChannel.clear();
+  for (const [note, velocity, channel] of state.held) {
+    input.held.set(note, velocity);
+    input.heldChannel.set(note, channel);
+  }
+  input.cc.fill(0);
+  for (const [cc, value] of state.cc) if (cc >= 0 && cc < 128) input.cc[cc] = value;
+  input.pitchBend = state.pitchBend;
+  input.sustain = state.sustain;
+  input.version++;
+}
+
 let hooks: BridgeHooks = { onShowStarting: () => undefined, onShowEnded: () => undefined };
 
 /** Wires the control window to the stage. Call once at startup. */
@@ -72,6 +91,7 @@ export function initShowBridge(bridgeHooks: BridgeHooks): void {
     const message = parsed.data;
     if (message.t === 'state') {
       usePresenterStore.setState({ stage: message });
+      mirrorInput(message);
     } else if (message.t === 'report') {
       logger.info('Show report', message);
       if (message.rehearsal) usePresenterStore.setState({ report: message });

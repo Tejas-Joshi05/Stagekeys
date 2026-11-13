@@ -6,6 +6,7 @@ import {
   createShape,
   createText,
   exec,
+  getCurrentSlide,
   setSelection,
   useDeckStore,
   type Asset,
@@ -13,7 +14,7 @@ import {
 } from '../deck';
 import { api } from '../shared/api';
 import { notify } from '../shared/notify';
-import { newId } from '../shared/util';
+import { isDarkColour, newId } from '../shared/util';
 
 type InsertKind = 'text' | 'rect' | 'ellipse' | 'line' | 'image' | 'animation';
 
@@ -124,6 +125,8 @@ export async function insertElement(kind: InsertKind, animationId?: string): Pro
         def.defaultSize.width,
         def.defaultSize.height,
       );
+      const slide = getCurrentSlide(useDeckStore.getState());
+      el.params = def.paramsFor({ dark: isDarkColour(slide?.background.color ?? '#000000') });
       el.bindings = def.defaultBindings.map((b) => ({
         param: b.param,
         source: b.source,

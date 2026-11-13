@@ -78,6 +78,14 @@ Use the `param` helpers so the editor knows which control to show:
 
 Only numeric parameters can be bound to velocity, a CC knob, pitch bend or note pitch.
 
+## Fitting the slide it lands on
+
+Optional `paramsFor({ dark })` returns starting values for a newly placed instance, picked from the slide's background. The ASCII garden uses it to print cream ink that glows on dark slides and keep the website's olive-on-cream riso look on light ones.
+
+## Artwork
+
+Images an animation samples or draws live in `animations/assets/` and are listed in `art.ts`. They are imported with `?inline`, so reading their pixels back from a canvas is allowed even from `file://` in the packaged app. `preloadArt()` decodes them all at startup, so the first frame on stage, thumbnails and exports never show an empty animation.
+
 ## What `update` receives
 
 - `frame.dt` and `frame.time` in seconds. `dt` is capped at 0.1 s, so a stall never causes a jump.
@@ -88,7 +96,7 @@ Only numeric parameters can be bound to velocity, a CC knob, pitch bend or note 
 
 1. **No timers, no event listeners, no `requestAnimationFrame`.** Drive everything from `frame.dt`. The host calls `update` once per frame.
 2. **Draw only inside `ctx.root`,** in local coordinates from (0,0) to (`ctx.width`, `ctx.height`). The host positions, rotates and fades the root.
-3. **Clean up.** Everything under `ctx.root` is destroyed for you. Anything else you create (generated textures, filters) must be passed through `ctx.own(resource)` or released in `teardown`.
+3. **Clean up.** Everything under `ctx.root` is destroyed for you. Anything else you create (generated textures, filters) must be passed through `ctx.own(resource)` or released in `teardown`. The one exception is app-wide artwork that every instance shares, made once and never destroyed: the glyph atlas (`sharedGlyphAtlas` in `glyphs.ts`) and the pressed-flower textures. Destroying a texture another instance is still drawing with makes Pixi warn and can blank a frame.
 4. **Do not allocate per frame if you can avoid it.** Create a pool in `setup` and reuse it (see `bloom.ts`). Redraw `Graphics` only when its look changes.
 5. **Read parameters from `inputs.params` in `update`,** not from `ctx.params`, or MIDI bindings will not reach you. Parameters that shape the layout (text, counts) are read in `setup`; changing them in the editor rebuilds the instance.
 6. **Throwing is safe but final.** An error in `setup`, `update` or `teardown` is caught and logged, and that instance is switched off for the rest of the slide. The show carries on.

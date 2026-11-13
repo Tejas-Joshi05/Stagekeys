@@ -19,6 +19,8 @@ export function actionForKey(e: KeyLike, context: ShortcutContext): Action | nul
   const key = e.key.length === 1 ? e.key.toLowerCase() : e.key;
 
   if (mod && e.shiftKey && key === 'f') return { type: 'view.toggleFps' };
+  if (mod && e.shiftKey && key === 'k') return { type: 'view.toggleKeys' };
+  if (mod && e.shiftKey && key === 'p') return { type: 'audio.togglePiano' };
 
   if (context === 'show') {
     if (mod || e.altKey) return null;
@@ -43,6 +45,10 @@ export function actionForKey(e: KeyLike, context: ShortcutContext): Action | nul
         return { type: 'show.blackToggle' };
       case 'h':
         return { type: 'show.panic' };
+      case 'k':
+        return { type: 'view.toggleKeys' };
+      case 'p':
+        return { type: 'audio.togglePiano' };
       default:
         return null;
     }

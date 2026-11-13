@@ -13,8 +13,10 @@ import {
   type ImportedAsset,
   type Result,
 } from '../ipc/contract';
+import { DEFAULT_SETTINGS, SettingsPatchSchema } from '../ipc/settings';
 import * as files from './deckFiles';
 import { getLogDir, log } from './log';
+import { getSettings, updateSettings } from './settings';
 import {
   endShow,
   finishControlClose,
@@ -328,6 +330,19 @@ export function registerIpc(): void {
     z.tuple([]),
     () => getShowInit(),
     () => null,
+  );
+
+  handle(
+    CHANNELS.getSettings,
+    z.tuple([]),
+    () => getSettings(),
+    () => DEFAULT_SETTINGS,
+  );
+  handle(
+    CHANNELS.updateSettings,
+    z.tuple([SettingsPatchSchema]),
+    ([patch]) => updateSettings(patch),
+    () => DEFAULT_SETTINGS,
   );
 
   ipcMain.on(CHANNELS.showMessage, (event, message: unknown) => {

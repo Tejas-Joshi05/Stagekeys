@@ -17,6 +17,9 @@ process.on('unhandledRejection', (reason) => {
   log('error', 'main', 'Unhandled rejection', String(reason));
 });
 
+// The piano must sound on the first key press, without waiting for a click.
+app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
+
 // Chromium asks for `midiSysex` even for plain Web MIDI access, so both are needed for MIDI to work.
 const ALLOWED_PERMISSIONS = new Set(['midi', 'midiSysex', 'local-fonts']);
 

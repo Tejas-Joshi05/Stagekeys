@@ -33,6 +33,12 @@ export const StageStateSchema = z.object({
   fps: z.number(),
   latencyMs: z.number(),
   animationErrors: z.number().int(),
+  /** What is being played, for the keys picture in the presenter view: [note, velocity, channel]. */
+  held: z.array(z.tuple([z.number(), z.number(), z.number()])).default([]),
+  /** Non-zero controller positions: [cc, value]. */
+  cc: z.array(z.tuple([z.number(), z.number()])).default([]),
+  pitchBend: z.number().default(0),
+  sustain: z.boolean().default(false),
 });
 export type StageState = z.infer<typeof StageStateSchema>;
 

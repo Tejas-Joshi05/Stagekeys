@@ -1,9 +1,15 @@
+import '@fontsource-variable/familjen-grotesk';
 import '@fontsource-variable/inter';
+import '@fontsource/ibm-plex-mono/400.css';
+import '@fontsource/ibm-plex-mono/500.css';
+import '@fontsource/ibm-plex-mono/600.css';
 import '@fontsource-variable/space-grotesk';
 import '@fontsource-variable/jetbrains-mono';
 
 /** Open-licence (SIL OFL) fonts shipped inside the app. These render the same on every machine. */
 export const BUNDLED_FONTS = [
+  'Familjen Grotesk Variable',
+  'IBM Plex Mono',
   'Inter Variable',
   'Space Grotesk Variable',
   'JetBrains Mono Variable',
@@ -47,7 +53,7 @@ export function isBundledFont(family: string): boolean {
  */
 export async function loadBundledFonts(): Promise<void> {
   const loads = BUNDLED_FONTS.flatMap((family) =>
-    [400, 700].map((weight) => document.fonts.load(`${weight} 48px "${family}"`)),
+    [400, 500, 700].map((weight) => document.fonts.load(`${weight} 48px "${family}"`)),
   );
   await Promise.allSettled(loads);
 }

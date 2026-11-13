@@ -42,15 +42,15 @@ test('animations play, the show survives a stress run, and export works', async 
   await win.getByTestId('anim-test').click();
   await win.evaluate(() => window.__stagekeysMidi?.([0x90, 64, 120]));
 
-  // Slides 2-4: the other animations plus ordinary elements.
-  for (const id of ['ripple', 'text-reveal', 'step-sequence']) {
+  // Slides 2-6: the other animations plus ordinary elements.
+  for (const id of ['ascii-garden', 'pressed-bloom', 'ripple', 'text-reveal', 'step-sequence']) {
     await win.getByTestId('add-slide').click();
     await win.getByTestId('add-animation').selectOption(id);
     await win.getByTestId('add-rect').click();
     await win.getByTestId('add-text').click();
   }
   await win.getByTestId('add-animation').selectOption('pulse');
-  await expect(win.getByTestId('slide-thumb')).toHaveCount(4);
+  await expect(win.getByTestId('slide-thumb')).toHaveCount(6);
 
   await win.getByTestId('save').click();
   await expect(win.getByTestId('save-status')).toHaveText('Saved');
@@ -81,6 +81,20 @@ test('animations play, the show survives a stress run, and export works', async 
     .poll(() => stage.evaluate(() => window.__stagekeysStage?.fps() ?? 0), { timeout: 10_000 })
     .toBeGreaterThan(30);
 
+  // Piano and the keys picture switch on from the stage keyboard and are remembered.
+  await stage.keyboard.press('p');
+  await stage.keyboard.press('k');
+  await expect(win.getByTestId('presenter-keys')).toHaveAttribute('aria-pressed', 'true');
+  await expect(stage.locator('.stage-keys')).toBeVisible();
+  await stage.evaluate(() => {
+    const midi = window.__stagekeysMidi;
+    for (let i = 0; i < 40; i++) midi?.([0x90, 48 + (i % 25), 90]);
+    for (let i = 0; i < 40; i++) midi?.([0x80, 48 + (i % 25), 0]);
+  });
+  const settings = JSON.parse(await readFile(path.join(work, 'profile', 'settings.json'), 'utf8'));
+  expect(settings.piano.enabled).toBe(true);
+  expect(settings.keysOverlay.stage).toBe(true);
+
   const closed = stage.waitForEvent('close');
   // The window closes while the key press is still being acknowledged, so the call itself may reject.
   await stage.keyboard.press('Escape').catch(() => undefined);
@@ -103,7 +117,7 @@ test('animations play, the show survives a stress run, and export works', async 
       async () =>
         (await readdir(exportDir).catch(() => [])).filter((f) => f.endsWith('.png')).length,
     )
-    .toBe(4);
+    .toBe(6);
   await menuAction('file.exportPdf');
   await expect
     .poll(async () => (await readdir(exportDir).catch(() => [])).some((f) => f.endsWith('.pdf')))

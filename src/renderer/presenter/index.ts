@@ -2,6 +2,7 @@ export { runStage } from './stage';
 export {
   dismissReport,
   initShowBridge,
+  presenterInput,
   sendToStage,
   setShowDisplay,
   startShow,

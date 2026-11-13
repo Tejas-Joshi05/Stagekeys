@@ -1,6 +1,6 @@
 # Stagekeys architecture
 
-Status: **approved and implemented** (2026-11-13). Keep this file up to date when the design moves.
+Status: **approved and implemented** (2026-11-13, updated 2026-11-14 for 0.2.0). Keep this file up to date when the design moves.
 
 Stagekeys is a slide editor and live presenter driven by a MIDI keyboard. It is used live on stage, so every design choice below prefers reliability over features.
 
@@ -56,6 +56,7 @@ src/
     index.ts            the only bridge; exposes window.stagekeys
   ipc/
     contract.ts         channel names + request/response types shared by main and renderer
+    settings.ts         app settings schema (piano, keys picture, controller profile)
   renderer/
     app/                shell, layout, error boundaries, routes (editor, presenter, stage)
     actions/            Action union, zod schema, dispatcher, keyboard shortcuts
@@ -64,9 +65,10 @@ src/
     deck/               schema, migrations, store, commands (undo/redo), persistence client
     editor/             slide list, canvas tools, properties panel, notes
     render/             PixiJS slide renderer shared by editor, thumbnails, stage, export
-    animations/         registry, host, built-ins (one file each)
+    animations/         registry, host, built-ins (one file each), riso artwork and glyph atlas
+    audio/              the optional piano (Web Audio voices), fed from the MIDI bus
     presenter/          show engine, presenter view, transitions, rehearsal
-    shared/             small utilities only
+    shared/             small utilities, the settings store
 tests/
   e2e/                  Playwright Electron smoke tests
 docs/
@@ -152,6 +154,12 @@ Web MIDI -> parser -> event bus (ring buffer, no React) -> mapping engine -> dis
 - `MidiSource` is an interface with two implementations: Web MIDI and a mock. The mock feeds tests, the dev virtual keyboard and the Playwright smoke test.
 - Latency is measured in dev mode from the MIDI message timestamp to the frame that first shows its effect.
 
+**The MPK mini IV**: `midi/controller.ts` names each message's physical control (key, pad, knob, wheel, pedal) using the controller profile from settings: pads are notes on the pad channel, knobs are the profile's eight CCs. The keys picture (`midi/keysOverlay.ts`) is a plain canvas that redraws only when `MidiInputState.version` changes; the stage draws its own copy, and the presenter view draws a mirror fed by the stage's 10 Hz status message.
+
+**Mapping editor**: the Mapping tab shows the controller. While it is open, a `ControlPicker` sits in the mapping engine ahead of the mappings: a press chooses that control in the editor and does nothing else. The editor polls the picker at 10 Hz, so no React render happens per message.
+
+**Piano**: `audio/` subscribes to the bus after the mapping engine, so it can tell keys that triggered a mapping and keep them silent. It runs in whichever window owns MIDI, so it never doubles.
+
 **Mapping resolution**: a message is matched against the current slide's mappings first, then global ones. If a per-slide mapping matches, global mappings for that same trigger are skipped.
 
 ## Rendering
@@ -180,7 +188,13 @@ defineAnimation({
 })
 ```
 
+The riso animations (ASCII garden, Pressed flowers) use artwork bundled inline (`animations/assets/`, decoded at startup by `preloadArt`). The ASCII garden samples an ink-density map into a small canvas about 30 times a second and draws one GPU particle per glyph cell from a shared glyph atlas, two particle containers for the two inks. Shared artwork textures live for the whole app, so no instance can destroy a texture another is drawing with.
+
 The animation host owns each instance's root container and destroys it with all children on slide change, whether or not `teardown` behaved. `setup`, `update` and `teardown` are each wrapped: an error is logged, that instance is switched off, and the show carries on.
+
+## Settings
+
+App settings (piano, keys picture, controller profile) live in `settings.json` in the app data folder, owned by main, written atomically, and broadcast to both windows on every change. They are about the machine and the controller, not the talk, so they are not in decks. See `docs/decisions/0004-app-settings-and-controller-profile.md`.
 
 ## Show-safe mode
 

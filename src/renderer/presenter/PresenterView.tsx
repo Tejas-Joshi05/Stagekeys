@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
 import type { Action } from '../actions';
 import { useDeckStore } from '../deck';
-import { MidiMonitorView, MidiStatusBadge } from '../midi';
+import { KeysOverlayView, MidiMonitorView, MidiStatusBadge } from '../midi';
 import { useSlideImage } from '../render';
+import { useSettings } from '../shared/settings';
 import { formatDuration } from '../shared/util';
-import { sendToStage, usePresenterStore } from './control';
+import { presenterInput, sendToStage, usePresenterStore } from './control';
 
 function Clock() {
   const [now, setNow] = useState(() => new Date());
@@ -25,6 +26,9 @@ export function PresenterView() {
   const path = useDeckStore((s) => s.path);
   const stage = usePresenterStore((s) => s.stage);
   const rehearsal = usePresenterStore((s) => s.rehearsal);
+  const piano = useSettings((s) => s.piano.enabled);
+  const keysOnStage = useSettings((s) => s.keysOverlay.stage);
+  const keysHere = useSettings((s) => s.keysOverlay.control);
 
   const index = stage?.slideIndex ?? 0;
   const current = deck?.slides[index];
@@ -85,6 +89,12 @@ export function PresenterView() {
         </section>
 
         <section className="presenter-side">
+          {keysHere && (
+            <>
+              <div className="label">Playing</div>
+              <KeysOverlayView input={presenterInput} width={292} />
+            </>
+          )}
           <div className="label">MIDI</div>
           <MidiMonitorView lines={stage?.monitor ?? []} />
           <div className="presenter-stats">
@@ -108,6 +118,21 @@ export function PresenterView() {
         </button>
         <button onClick={act({ type: 'show.blackToggle' })}>Black (B)</button>
         <button onClick={act({ type: 'show.panic' })}>Panic (H)</button>
+        <button
+          className={piano ? 'toggle on' : 'toggle'}
+          aria-pressed={piano}
+          onClick={act({ type: 'audio.togglePiano' })}
+        >
+          Piano {piano ? 'on' : 'off'} (P)
+        </button>
+        <button
+          className={keysOnStage ? 'toggle on' : 'toggle'}
+          aria-pressed={keysOnStage}
+          onClick={act({ type: 'view.toggleKeys' })}
+          data-testid="presenter-keys"
+        >
+          Keys on screen {keysOnStage ? 'on' : 'off'} (K)
+        </button>
         <span className="spacer" />
         <button className="danger" onClick={act({ type: 'show.end' })} data-testid="presenter-end">
           End show (Esc)

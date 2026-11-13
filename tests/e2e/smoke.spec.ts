@@ -11,7 +11,7 @@ import path from 'node:path';
 
 /**
  * End-to-end smoke test against the built app:
- * launch → create deck → add slide → add text → save → reopen → map a key →
+ * launch → create deck → add slide → add text → save → reopen → map a key on the controller map →
  * present → advance via mock MIDI → keyboard fallback → exit, with a clean log.
  */
 
@@ -87,12 +87,17 @@ test('create, save, reopen, present with mock MIDI, exit', async () => {
   const backups = await readdir(path.join(work, 'Smoke.stagekeys', 'backups'));
   expect(backups.length).toBeGreaterThan(0);
 
-  // ── Map a key with MIDI Learn ─────────────────────────────────────────────
+  // ── Map a key on the controller map ───────────────────────────────────────
+  // With the Mapping tab open, pressing a key chooses it instead of acting.
   await win.getByTestId('tab-mappings').click();
-  await win.getByTestId('add-mapping').click();
-  await expect(win.getByTestId('mapping-learn')).toHaveText('Listening…');
+  await expect(win.getByTestId('controller-map')).toBeVisible();
   await win.evaluate(() => window.__stagekeysMidi?.([0x90, 60, 100]));
-  await expect(win.getByTestId('mapping-summary')).toContainText('Press C4');
+  await expect(win.getByTestId('control-name')).toContainText('C4');
+  await win.getByTestId('action-nav.next').click();
+  await expect(win.getByTestId('mapping-input')).toHaveText('C4');
+  await expect(win.getByTestId('mapping-card')).toHaveCount(1);
+  // Still on slide 1: picking did not fire the new mapping.
+  await expect(win.getByTestId('slide-thumb').nth(1)).not.toHaveClass(/selected/);
 
   // The monitor shows the key press.
   await win.getByTestId('tab-midi').click();

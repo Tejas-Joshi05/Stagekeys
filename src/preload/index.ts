@@ -1,5 +1,6 @@
 import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron';
 import { CHANNELS, type StagekeysApi } from '../ipc/contract';
+import type { AppSettings } from '../ipc/settings';
 
 function subscribe<T>(channel: string, callback: (payload: T) => void): () => void {
   const listener = (_event: IpcRendererEvent, payload: T): void => callback(payload);
@@ -38,6 +39,9 @@ const api: StagekeysApi = {
   onMenuAction: (callback) => subscribe(CHANNELS.menuAction, callback),
   onFlushRequest: (callback) => subscribe<undefined>(CHANNELS.flushRequest, () => callback()),
   flushDone: (error) => ipcRenderer.send(CHANNELS.flushDone, error),
+  getSettings: () => ipcRenderer.invoke(CHANNELS.getSettings),
+  updateSettings: (patch) => ipcRenderer.invoke(CHANNELS.updateSettings, patch),
+  onSettingsChanged: (callback) => subscribe<AppSettings>(CHANNELS.settingsChanged, callback),
   log: (level, message, data) => ipcRenderer.send(CHANNELS.log, level, message, data),
   openLogFolder: () => ipcRenderer.invoke(CHANNELS.openLogFolder),
 };

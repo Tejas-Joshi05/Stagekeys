@@ -14,6 +14,7 @@ const features = [
   'render',
   'animations',
   'presenter',
+  'audio',
 ];
 
 export default tseslint.config(

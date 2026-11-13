@@ -324,6 +324,8 @@ function AnimationProps({ el }: { el: AnimationElement }) {
         },
         false,
       );
+      // Show the key that was just learned on the controller map.
+      useEditorUi.setState({ focusMappingId: id });
     });
   };
 

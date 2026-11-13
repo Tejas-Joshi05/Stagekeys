@@ -44,3 +44,14 @@ export function hexToNumber(hex: string): number {
   const h = m[1].length === 3 ? [...m[1]].map((c) => c + c).join('') : m[1];
   return parseInt(h, 16);
 }
+
+/** True for colours dark enough that light ink reads better on them (relative luminance below 0.4). */
+export function isDarkColour(hex: string): boolean {
+  const n = hexToNumber(hex);
+  const lin = (c: number): number => {
+    const v = c / 255;
+    return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
+  };
+  const l = 0.2126 * lin((n >> 16) & 255) + 0.7152 * lin((n >> 8) & 255) + 0.0722 * lin(n & 255);
+  return l < 0.4;
+}

@@ -1,13 +1,16 @@
 import { createRoot } from 'react-dom/client';
 import { actionForKey, actions, ActionSchema, dispatch } from '../actions';
+import { preloadArt } from '../animations';
+import { startPiano } from '../audio';
 import { autosave, discardPristineDraft, flushSaves, getCurrentSlide, useDeckStore } from '../deck';
-import { learnSession, startMappingEngine } from '../mapping';
+import { controlPicker, learnSession, startMappingEngine } from '../mapping';
 import { midi, MockMidiSource, WebMidiSource, type MidiSource } from '../midi';
 import { initShowBridge, usePresenterStore } from '../presenter';
 import { loadBundledFonts } from '../render';
 import { api } from '../shared/api';
 import { errorMessage, logger } from '../shared/log';
 import { notify } from '../shared/notify';
+import { initSettings } from '../shared/settings';
 import { App } from './App';
 import { useAppStore } from './appStore';
 import { registerControlActions } from './controlActions';
@@ -32,7 +35,7 @@ export async function runControl(root: HTMLElement): Promise<void> {
 
   const info = await api().getInfo();
   useAppStore.setState({ info });
-  await loadBundledFonts();
+  await Promise.all([loadBundledFonts(), preloadArt(), initSettings()]);
   registerControlActions();
 
   // ── MIDI for the editor (monitor, Learn, live preview) ────────────────────
@@ -54,6 +57,7 @@ export async function runControl(root: HTMLElement): Promise<void> {
     bus: midi.bus,
     dispatch,
     learn: learnSession,
+    picker: controlPicker,
     // During a show the stage window owns MIDI; this window stays out of the way.
     isActive: () => !usePresenterStore.getState().active,
     getMappings: () => {
@@ -65,9 +69,12 @@ export async function runControl(root: HTMLElement): Promise<void> {
       };
     },
   });
+  // After the mapping engine, so keys that trigger a mapping can stay silent.
+  startPiano({ bus: midi.bus, isActive: () => !usePresenterStore.getState().active });
   initShowBridge({
     onShowStarting: () => {
       learnSession.cancel();
+      controlPicker.enabled = false;
       midi.stop();
     },
     onShowEnded: () => void midi.start(makeSource()),

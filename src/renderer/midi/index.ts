@@ -14,3 +14,18 @@ export {
 } from './MidiMonitor';
 export { DevicePicker, MidiStatusBadge, midiStatusText } from './DevicePicker';
 export { KeyboardDiagram, type KeyboardZone } from './KeyboardDiagram';
+export {
+  controlFor,
+  controlLabel,
+  isPadNote,
+  keyLayout,
+  keysWindow,
+  padFor,
+  KEY_COUNT,
+  KNOB_COUNT,
+  MOD_CC,
+  PAD_COUNT,
+  type ControlRef,
+} from './controller';
+export { KeysOverlay, OVERLAY_H, OVERLAY_W } from './keysOverlay';
+export { KeysOverlayView } from './KeysOverlayView';

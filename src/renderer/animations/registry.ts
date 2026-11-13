@@ -1,4 +1,6 @@
+import { asciiGarden } from './builtin/asciiGarden';
 import { bloom } from './builtin/bloom';
+import { pressedBloom } from './builtin/pressedBloom';
 import { pulse } from './builtin/pulse';
 import { ripple } from './builtin/ripple';
 import { stepSequence } from './builtin/stepSequence';
@@ -10,7 +12,15 @@ import type { RegisteredAnimation } from './define';
  * ./builtin that exports a `defineAnimation(...)` result and add it to this
  * list. Nothing else needs to change. See docs/ADDING_ANIMATIONS.md.
  */
-const ALL: readonly RegisteredAnimation[] = [bloom, pulse, ripple, textReveal, stepSequence];
+const ALL: readonly RegisteredAnimation[] = [
+  asciiGarden,
+  pressedBloom,
+  bloom,
+  pulse,
+  ripple,
+  textReveal,
+  stepSequence,
+];
 
 const byId = new Map<string, RegisteredAnimation>();
 for (const animation of ALL) {

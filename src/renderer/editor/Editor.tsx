@@ -10,8 +10,8 @@ import { useEditorUi, type RightTab } from './uiStore';
 
 const TABS: { id: RightTab; label: string }[] = [
   { id: 'properties', label: 'Properties' },
-  { id: 'mappings', label: 'Mappings' },
-  { id: 'midi', label: 'MIDI' },
+  { id: 'mappings', label: 'Mapping' },
+  { id: 'midi', label: 'MIDI & sound' },
 ];
 
 /** The editing workspace. Every panel sits in its own error boundary. */

@@ -63,6 +63,10 @@ export const ActionSchema = z.discriminatedUnion('type', [
   plain('file.exportPdf'),
   // View
   plain('view.toggleFps'),
+  /** Shows or hides the little controller picture (on the audience screen during a show). */
+  plain('view.toggleKeys'),
+  // Sound
+  plain('audio.togglePiano'),
 ]);
 
 export type Action = z.infer<typeof ActionSchema>;
@@ -82,6 +86,8 @@ export const MAPPABLE_ACTIONS = [
   'show.panic',
   'anim.trigger',
   'anim.setParam',
+  'audio.togglePiano',
+  'view.toggleKeys',
 ] as const satisfies readonly ActionType[];
 
 export const ACTION_LABELS: Record<(typeof MAPPABLE_ACTIONS)[number], string> = {
@@ -93,4 +99,6 @@ export const ACTION_LABELS: Record<(typeof MAPPABLE_ACTIONS)[number], string> = 
   'show.panic': 'Panic / home',
   'anim.trigger': 'Trigger animation',
   'anim.setParam': 'Set animation parameter',
+  'audio.togglePiano': 'Piano sound on/off',
+  'view.toggleKeys': 'Show/hide keys picture',
 };

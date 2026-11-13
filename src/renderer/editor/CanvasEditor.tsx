@@ -9,7 +9,8 @@ import {
   type SlideElement,
   type TextElement,
 } from '../deck';
-import { midi } from '../midi';
+import { KeysOverlayView, midi } from '../midi';
+import { useSettings } from '../shared/settings';
 import { getDeckResources } from '../render';
 import { EditorCanvas, setActiveCanvas } from './editorCanvas';
 import {
@@ -73,6 +74,7 @@ export function CanvasEditor() {
   const slide = useDeckStore((s) => getCurrentSlide(s));
   const selection = useDeckStore((s) => s.selection);
   const fpsVisible = useEditorUi((s) => s.fpsVisible);
+  const keysOverlay = useSettings((s) => s.keysOverlay);
 
   const wrapRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -483,6 +485,13 @@ export function CanvasEditor() {
         )}
         <div className="fps-overlay" ref={fpsRef} hidden={!fpsVisible} data-testid="fps-overlay" />
       </div>
+      {keysOverlay.control && (
+        <KeysOverlayView
+          input={midi.input}
+          width={232}
+          className={`corner ${keysOverlay.corner}`}
+        />
+      )}
     </div>
   );
 }
