@@ -35,6 +35,14 @@ Deck schema stays at version 1; decks from 0.1.0 open unchanged.
 - ASCII garden: the Wind setting works (the mod wheel blows harder on top of it); full pitch bend and wind no longer push the plant out of its box; key ripples are easier to see.
 - A setting that follows a MIDI binding is shown as "Follows velocity" (or the knob) instead of a field that seems to do nothing.
 
+### Show reliability
+
+- Before the first slide, the stage decodes every image and draws every slide once off screen, so nothing pops in or stutters the first time it is shown (about half a second for a ten-slide deck).
+- Images larger than 3840 pixels are scaled down when loaded: less memory and faster uploads, no visible difference on a 1920×1080 slide.
+- The piano's audio engine starts with the show instead of on the first note.
+- Measured on this Mac, 60 seconds of constant MIDI with 40 slide changes, piano and keys picture on: median frame 8.3 ms, worst 17 ms, no frame over 20 ms, memory flat.
+- `docs/SHOW_DAY.md`: a checklist for the day of the talk.
+
 ### Settings
 
 - App settings (piano, keys picture, controller layout) are saved in `settings.json` in the app data folder and shared live between the editor and the stage window.

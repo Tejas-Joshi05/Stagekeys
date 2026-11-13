@@ -204,6 +204,7 @@ App settings (piano, keys picture, controller profile) live in `settings.json` i
 - Keyboard fallback (arrows, space, Esc) is handled independently of MIDI.
 - Background throttling is off for both windows.
 - If the stage renderer dies, main recreates it at the last slide.
+- Before the first slide the stage preloads every image (capped at 3840 px) and draws each slide once into an off-screen texture, so shaders compile and textures upload before the audience sees anything (`StagePlayer.warmUp`, bounded to 4 s).
 
 ## Security
 

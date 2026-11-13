@@ -108,6 +108,8 @@ export async function runStage(root: HTMLElement): Promise<void> {
   window.addEventListener('resize', placeKeys);
 
   let animationErrors = 0;
+  // Frame-rate warnings only count once the audience can see something.
+  let live = false;
   const timeline = new ShowTimeline();
   const player = new StagePlayer({
     canvas,
@@ -130,7 +132,7 @@ export async function runStage(root: HTMLElement): Promise<void> {
           fps: Number(summary.fps.toFixed(1)),
         });
       }
-      if (summary.fps < 50) {
+      if (live && summary.fps < 50) {
         logger.warn('Frame rate dipped', {
           fps: Number(summary.fps.toFixed(1)),
           worstFrameMs: Number(summary.worstFrameMs.toFixed(1)),
@@ -160,10 +162,32 @@ export async function runStage(root: HTMLElement): Promise<void> {
   fit();
   window.addEventListener('resize', fit);
 
+  // Before the first slide: every image decoded, and every slide drawn once off
+  // screen, so nothing pops in or stutters the first time it is shown.
+  try {
+    const warmStart = performance.now();
+    const textures = getDeckResources(init.deckPath).textures;
+    await Promise.race([
+      textures.preload(Object.values(deck.assets).map((a) => ({ file: a.file, mime: a.mime }))),
+      new Promise((resolve) => setTimeout(resolve, 6000)),
+    ]);
+    const warmed = await player.warmUp();
+    logger.info('Stage warmed up', {
+      slides: warmed,
+      images: Object.keys(deck.assets).length,
+      ms: Math.round(performance.now() - warmStart),
+    });
+  } catch (e) {
+    logger.warn('Stage warm-up skipped', errorMessage(e));
+  }
+
   const goto = (index: number, animate = true): void => {
     if (player.goto(index, animate)) timeline.enter(player.slideIndex, performance.now());
   };
   goto(Math.min(init.slideIndex, deck.slides.length - 1), false);
+  setTimeout(() => {
+    live = true;
+  }, 500);
 
   // ── Actions: the only way anything happens on stage ───────────────────────
   actions.register('nav.next', () => goto(player.slideIndex + 1));

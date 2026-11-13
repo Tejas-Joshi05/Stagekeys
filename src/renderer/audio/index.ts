@@ -17,6 +17,7 @@ export interface PianoOptions {
  */
 export function startPiano(options: PianoOptions): () => void {
   const engine = new PianoEngine(useSettings.getState().piano);
+  engine.warm();
   const unsubscribeSettings = useSettings.subscribe((s, prev) => {
     if (s.piano !== prev.piano) engine.configure(s.piano);
   });

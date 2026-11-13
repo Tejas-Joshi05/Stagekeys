@@ -46,6 +46,11 @@ export class PianoEngine {
     this.settings = settings;
   }
 
+  /** Starts the audio engine now, so the first note does not pay for it. */
+  warm(): void {
+    if (this.settings.enabled) this.context();
+  }
+
   configure(settings: PianoSettings): void {
     const wasOn = this.settings.enabled;
     this.settings = settings;
@@ -53,6 +58,7 @@ export class PianoEngine {
       this.master.gain.setTargetAtTime(settings.volume * 0.5, this.ctx.currentTime, 0.02);
     }
     if (wasOn && !settings.enabled) this.allOff();
+    if (!wasOn && settings.enabled) this.warm();
   }
 
   /** Creates the audio graph on first use. Returns null where Web Audio is unavailable. */

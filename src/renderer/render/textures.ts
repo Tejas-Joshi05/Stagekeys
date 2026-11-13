@@ -5,6 +5,12 @@ export interface TextureSource {
   mime: string;
 }
 
+/**
+ * Longest side a deck image is kept at. A slide is 1920 wide and the stage
+ * backing is at most 3840, so anything bigger only costs memory and upload time.
+ */
+export const MAX_TEXTURE_SIDE = 3840;
+
 export type AssetLoader = (file: string) => Promise<Uint8Array | null>;
 
 interface Entry {
@@ -56,7 +62,22 @@ export class AssetTextures {
       image.src = url;
       await image.decode();
       if (this.destroyed) return;
-      entry.texture = Texture.from(image);
+      const longest = Math.max(image.naturalWidth, image.naturalHeight);
+      if (longest > MAX_TEXTURE_SIDE && typeof createImageBitmap === 'function') {
+        const k = MAX_TEXTURE_SIDE / longest;
+        const bitmap = await createImageBitmap(image, {
+          resizeWidth: Math.round(image.naturalWidth * k),
+          resizeHeight: Math.round(image.naturalHeight * k),
+          resizeQuality: 'high',
+        });
+        if (this.destroyed) {
+          bitmap.close();
+          return;
+        }
+        entry.texture = Texture.from(bitmap);
+      } else {
+        entry.texture = Texture.from(image);
+      }
       for (const ready of entry.waiting) ready(entry.texture);
     } catch (e) {
       entry.failed = true;
@@ -69,6 +90,12 @@ export class AssetTextures {
         for (const done of this.idleWaiters.splice(0)) done();
       }
     }
+  }
+
+  /** Starts loading every given image and resolves when all have arrived (or failed). */
+  preload(sources: readonly TextureSource[]): Promise<void> {
+    for (const source of sources) this.request(source, () => undefined);
+    return this.settled();
   }
 
   /** Resolves once nothing is loading (used before thumbnails and export). */

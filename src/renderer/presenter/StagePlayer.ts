@@ -1,4 +1,4 @@
-import { Container, Graphics, type Renderer } from 'pixi.js';
+import { Container, Graphics, RenderTexture, type Renderer } from 'pixi.js';
 import type { Deck } from '../deck';
 import type { MidiBus, MidiInputState } from '../midi';
 import { createRenderer, fitRenderer, SlideScene, type AssetTextures } from '../render';
@@ -68,6 +68,40 @@ export class StagePlayer {
       return;
     }
     this.raf = requestAnimationFrame(this.frame);
+  }
+
+  /**
+   * Draws every slide once, off screen, before the show starts. Shaders get
+   * compiled and images uploaded now rather than the first time a slide
+   * appears in front of the audience. Bounded by a time budget so a huge deck
+   * still starts promptly; anything left over warms up on first use as before.
+   */
+  async warmUp(budgetMs = 4000): Promise<number> {
+    const renderer = this.renderer;
+    if (!renderer) return 0;
+    const deck = this.options.deck;
+    const target = RenderTexture.create({ width: this.size.width, height: this.size.height });
+    const start = performance.now();
+    let warmed = 0;
+    try {
+      for (const slide of deck.slides) {
+        if (this.destroyed || performance.now() - start > budgetMs) break;
+        const scene = this.newScene();
+        try {
+          scene.sync(slide, deck);
+          scene.update(1 / 60, this.options.input);
+          renderer.render({ container: scene.root, target });
+          warmed++;
+        } finally {
+          scene.destroy();
+        }
+        // Let the window breathe between slides.
+        await new Promise((resolve) => setTimeout(resolve, 0));
+      }
+    } finally {
+      target.destroy(true);
+    }
+    return warmed;
   }
 
   resize(cssWidth: number, dpr: number): void {
