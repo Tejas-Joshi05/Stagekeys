@@ -27,6 +27,14 @@ Deck schema stays at version 1; decks from 0.1.0 open unchanged.
 - New "night riso" interface: warm dark ground, cream type in Familjen Grotesk with IBM Plex Mono for MIDI data, and the website's rose and leaf inks for selection and live state. Chosen things carry a rose second ink printed slightly off register.
 - The welcome screen grows the ASCII plants live.
 
+### Animation fixes
+
+- Editing an animation's colour, wind, size and similar settings no longer restarts it (the garden used to grow again from the stem on every change). Only settings that change its layout rebuild it; animations declare these with `rebuildOn`.
+- Choosing another plant in the editor grows it with the plant-change ripple instead of restarting.
+- Pressed flowers: pressing the same key again opens out the old flower instead of stacking a copy on top; letting go mid-bloom no longer makes the flower jump; velocity scales each flower directly, so Flower size works.
+- ASCII garden: the Wind setting works (the mod wheel blows harder on top of it); full pitch bend and wind no longer push the plant out of its box; key ripples are easier to see.
+- A setting that follows a MIDI binding is shown as "Follows velocity" (or the knob) instead of a field that seems to do nothing.
+
 ### Settings
 
 - App settings (piano, keys picture, controller layout) are saved in `settings.json` in the app data folder and shared live between the editor and the stage window.

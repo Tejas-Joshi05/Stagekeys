@@ -284,6 +284,49 @@ describe('AnimationInstance', () => {
   });
 });
 
+describe('live parameter changes', () => {
+  const live = (rebuildOn?: readonly ('size' | 'label')[]) => {
+    const seen: number[] = [];
+    let setups = 0;
+    const def = defineAnimation({
+      id: 'live',
+      name: 'Live',
+      description: '',
+      inputs: [],
+      rebuildOn,
+      params: z.object({ size: param.number('Size', 0.5, 0, 1), label: param.text('Label', 'a') }),
+      setup() {
+        setups++;
+        return {};
+      },
+      update(_s, _f, inputs) {
+        seen.push(inputs.params.size);
+      },
+      teardown() {},
+    });
+    return { def, seen, setups: () => setups };
+  };
+
+  it('applies a live parameter without a restart', () => {
+    const { def, seen, setups } = live(['label']);
+    const instance = new AnimationInstance(def, config({ params: { size: 0.2 } }), vi.fn());
+    const next = config({ params: { size: 0.9 } });
+    expect(instance.canReconfigure(next)).toBe(true);
+    instance.reconfigure(next);
+    instance.update(0.016, new MidiInputState());
+    expect(seen.at(-1)).toBe(0.9);
+    expect(setups()).toBe(1);
+  });
+
+  it('asks for a rebuild when a layout parameter changes, or when it declares nothing', () => {
+    const { def } = live(['label']);
+    const instance = new AnimationInstance(def, config({ params: { label: 'a' } }), vi.fn());
+    expect(instance.canReconfigure(config({ params: { label: 'b' } }))).toBe(false);
+    const legacy = new AnimationInstance(live().def, config({ params: { size: 0.2 } }), vi.fn());
+    expect(legacy.canReconfigure(config({ params: { size: 0.3 } }))).toBe(false);
+  });
+});
+
 describe('text reveal splitting', () => {
   it('splits by word keeping spaces with the word before', () => {
     expect(splitUnits('art over  optimisation', 'word')).toEqual([

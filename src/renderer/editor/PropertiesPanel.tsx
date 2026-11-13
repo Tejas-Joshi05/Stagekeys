@@ -344,16 +344,35 @@ function AnimationProps({ el }: { el: AnimationElement }) {
       >
         <p className="hint">{def.description}</p>
         <div className="grid2">
-          {controlsFor(def).map((control) => (
-            <ParamField
-              key={control.key}
-              control={control}
-              value={params[control.key]}
-              onChange={(value) =>
-                edit((a) => void (a.params[control.key] = value), `param:${control.key}`)
-              }
-            />
-          ))}
+          {controlsFor(def).map((control) => {
+            // A bound parameter follows MIDI, so its own field would have no effect.
+            const binding = el.bindings.find((b) => b.param === control.key);
+            if (binding) {
+              const source =
+                binding.source === 'cc'
+                  ? `knob CC ${binding.controller}`
+                  : (SOURCE_OPTIONS.find((o) => o.value === binding.source)?.label ??
+                    binding.source);
+              return (
+                <div className="field" key={control.key}>
+                  <span>{control.label}</span>
+                  <span className="bound-note" data-testid="bound-note">
+                    Follows {source.toLowerCase()}
+                  </span>
+                </div>
+              );
+            }
+            return (
+              <ParamField
+                key={control.key}
+                control={control}
+                value={params[control.key]}
+                onChange={(value) =>
+                  edit((a) => void (a.params[control.key] = value), `param:${control.key}`)
+                }
+              />
+            );
+          })}
         </div>
       </Section>
 

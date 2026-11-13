@@ -33,6 +33,7 @@ const ENTER = 2.8; // seconds for the first grow-in
 const MAX_CELLS = 24000;
 const MAX_BIRDS = 6;
 const MAX_RIPPLES = 12;
+const MOD_WHEEL = 1;
 
 const PLANT_LABELS = PLANTS as unknown as readonly [PlantName, ...PlantName[]];
 
@@ -47,8 +48,8 @@ const paramsSchema = z.object({
   misColour: param.colour('Second ink', '#d8a4af'),
   print: param.choice('Print as', ['riso on light', 'ink', 'glow on dark'], 'riso on light'),
   cellSize: param.number('Glyph size (px)', 15, 8, 48, 1),
-  fit: param.number('Plant size', 0.92, 0.3, 1),
-  wind: param.number('Wind', 0, 0, 1),
+  fit: param.number('Plant size', 0.85, 0.3, 1),
+  wind: param.number('Wind (the mod wheel adds more)', 0, 0, 1),
   sway: param.number('Idle sway', 1, 0, 3),
   rippleSize: param.number('Ripple reach', 0.6, 0.1, 1.5),
   autoChange: param.number('Change plant every (s, 0 = never)', 0, 0, 120, 1),
@@ -101,6 +102,8 @@ interface Garden {
   flock: { t0: number; dur: number; y: number; birds: Bird[] } | null;
   nextFlock: number;
   printKey: string;
+  /** The Plant setting last seen, to notice when it is changed in the editor. */
+  plantParam: string;
 }
 
 const ease3 = (x: number): number => 1 - Math.pow(1 - x, 3);
@@ -139,8 +142,9 @@ function sample(
   const h = ih * scale;
   const ang =
     p.sway * (0.018 * Math.sin(t * 0.5) + 0.01 * Math.sin(t * 1.3)) +
-    s.wind * (0.07 + 0.05 * Math.sin(t * 2.1) + 0.03 * Math.sin(t * 5.3)) +
-    bend * 0.3;
+    // Kept small so a full gust plus full bend (about 12°) never pushes the plant out of its box.
+    s.wind * (0.04 + 0.03 * Math.sin(t * 2.1) + 0.015 * Math.sin(t * 5.3)) +
+    bend * 0.13;
   const breathe = 1 + 0.008 * p.sway * Math.sin(t * 0.8);
   g.setTransform(k, 0, 0, k, -s.gx0 * k, -s.gy0 * k);
   g.translate(s.W / 2, s.H / 2 + h / 2);
@@ -211,7 +215,7 @@ function draw(s: Garden, t: number): void {
   }
   const gh = Math.max(cell, gb - gt);
   const reach = Math.hypot(W, H);
-  const band = cell * 2.6;
+  const band = cell * 3.4;
 
   for (let r = 0; r < rows; r++) {
     for (let c = 0; c < cols; c++) {
@@ -260,7 +264,7 @@ function draw(s: Garden, t: number): void {
         const fade = rp.strength * (1 - radius / (reach * rp.strength + 1));
         if (fade <= 0) continue;
         const chance = (1 - d / band) * fade;
-        if (g ? hash(c, r, step + 11) < chance * 1.4 : hash(c, r, step + 23) < chance * 0.45) {
+        if (g ? hash(c, r, step + 11) < chance * 1.8 : hash(c, r, step + 23) < chance * 0.7) {
           g = 1 + Math.floor(hash(c, r, step * 5 + 3) * RAMP_MAX);
         }
       }
@@ -336,8 +340,9 @@ export const asciiGarden = defineAnimation({
     'The live ASCII plants from tejasjoshi.vercel.app. Keys send ripples through the glyphs, a mapped trigger grows the next plant, held keys thicken the ink, pitch bend leans it and the mod wheel blows it about.',
   inputs: ['trigger', 'velocity', 'heldNotes', 'pitchBend', 'cc'],
   defaultSize: { width: 1000, height: 900 },
-  defaultBindings: [{ param: 'wind', source: 'cc', controller: 1, min: 0, max: 1 }],
   params: paramsSchema,
+  // Only the grid needs rebuilding; everything else, the plant included, changes live.
+  rebuildOn: ['cellSize'],
   // The website prints olive ink on cream paper; on a dark slide, cream ink glows instead.
   paramsFor: ({ dark }) =>
     dark ? { inkColour: '#efe6d8', misColour: '#d8a4af', print: 'glow on dark' as const } : {},
@@ -378,6 +383,7 @@ export const asciiGarden = defineAnimation({
       flock: null,
       nextFlock: 0,
       printKey: '',
+      plantParam: p.plant,
     };
 
     // Shared and kept for the app's lifetime; see sharedGlyphAtlas.
@@ -486,7 +492,16 @@ export const asciiGarden = defineAnimation({
     s.ripples = s.ripples.filter(
       (rp) => (t - rp.t0) * reach * 0.55 < reach * rp.strength + s.cell * 3,
     );
-    s.wind += (p.wind - s.wind) * Math.min(1, frame.dt * 4);
+    // The Wind setting is the calm level; the mod wheel blows harder on top of it.
+    const wind = Math.max(p.wind, inputs.cc(MOD_WHEEL));
+    s.wind += (wind - s.wind) * Math.min(1, frame.dt * 4);
+    // Choosing another plant in the editor grows it with the plant-change ripple.
+    if (p.plant !== s.plantParam) {
+      const target = plantIndex(p.plant);
+      switchTo(s, target, t);
+      // Mid-change, the switch waits; it is retried next frame.
+      if (s.plant === target) s.plantParam = p.plant;
+    }
 
     s.sinceSample += frame.dt;
     if (s.sinceSample >= SAMPLE_DT) {

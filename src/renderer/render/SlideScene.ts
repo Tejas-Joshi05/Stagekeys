@@ -91,12 +91,12 @@ function buildPlaceholder(el: AnimationElement, label: string): Container {
   const box = new Container();
   const outline = new Graphics()
     .rect(0, 0, el.width, el.height)
-    .stroke({ color: 0x8aa0ff, width: 2, alpha: 0.45 });
+    .stroke({ color: 0xd8a4af, width: 2, alpha: 0.35 });
   const text = new Text({
     text: label,
-    style: { fontFamily: 'Inter Variable', fontSize: 22, fill: '#8aa0ff' },
+    style: { fontFamily: 'IBM Plex Mono', fontSize: 20, fill: '#d8a4af' },
   });
-  text.alpha = 0.7;
+  text.alpha = 0.6;
   text.position.set(10, 8);
   box.addChild(outline, text);
   return box;

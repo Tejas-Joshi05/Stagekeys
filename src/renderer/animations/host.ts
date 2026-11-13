@@ -125,15 +125,17 @@ export class AnimationInstance {
 
   /** True if the change can be absorbed without rebuilding the instance. */
   canReconfigure(next: AnimationConfig): boolean {
-    return (
-      next.params === this.config.params &&
-      next.width === this.config.width &&
-      next.height === this.config.height
-    );
+    if (next.width !== this.config.width || next.height !== this.config.height) return false;
+    if (next.params === this.config.params) return true;
+    const rebuildOn = this.def.rebuildOn;
+    if (rebuildOn === null || this.failed) return false;
+    const parsed = this.def.parseParams(next.params);
+    return rebuildOn.every((key) => parsed[key] === this.baseParams[key]);
   }
 
-  /** Picks up changes to bindings and the note filter without restarting the animation. */
+  /** Picks up changes to bindings, the note filter and live parameters without restarting. */
   reconfigure(next: AnimationConfig): void {
+    if (next.params !== this.config.params) this.baseParams = this.def.parseParams(next.params);
     this.config = next;
   }
 

@@ -26,6 +26,8 @@ interface Bloom {
   x: number;
   y: number;
   rot: number;
+  /** Rotation when it started opening out, so letting go mid-bloom never jumps. */
+  outFrom: number;
   size: number;
   phase: number;
   born: number;
@@ -80,7 +82,7 @@ function flowerTextures(name: FlowerName): FlowerTextures | null {
   return made;
 }
 
-const POOL = 24;
+const POOL = 32;
 const OUT_TIME = 1.15;
 // cubic-bezier(.2,.8,.2,1) is close to this.
 const easeOut = (t: number): number => 1 - Math.pow(1 - t, 3.2);
@@ -96,7 +98,8 @@ export const pressedBloom = defineAnimation({
     'Tejas’s riso pressed flowers bloom in where you play. Each key has its own flower, harder hits bloom bigger, and letting go opens it out. A mapped trigger blooms the whole bouquet.',
   inputs: ['trigger', 'velocity', 'heldNotes', 'sustain', 'pitchBend'],
   defaultSize: { width: 1920, height: 1080 },
-  defaultBindings: [{ param: 'size', source: 'velocity', min: 0.45, max: 1 }],
+  // Everything is read live; nothing needs a rebuild when edited.
+  rebuildOn: [],
   params: z.object({
     size: param.number('Flower size', 0.8, 0.1, 1.5),
     bloomTime: param.number('Bloom time (s)', 0.95, 0.1, 4, 0.05),
@@ -137,6 +140,7 @@ export const pressedBloom = defineAnimation({
         x: 0,
         y: 0,
         rot: 0,
+        outFrom: 0,
         size: 0,
         phase: i * 1.7,
         born: 0,
@@ -166,6 +170,14 @@ export const pressedBloom = defineAnimation({
       for (const b of blooms) b.shadow.tint = tint;
     }
 
+    const currentRot = (b: Bloom): number =>
+      b.rot * (1 + 1.8 * (1 - easeOut(Math.min(1, b.age / p.bloomTime))));
+    const beginOut = (b: Bloom): void => {
+      if (b.out >= 0) return;
+      b.outFrom = currentRot(b);
+      b.out = 0;
+      b.note = null;
+    };
     const free = (): Bloom | undefined => {
       const idle = blooms.find((b) => !b.active);
       if (idle) return idle;
@@ -184,6 +196,9 @@ export const pressedBloom = defineAnimation({
       note: number | null,
     ): void => {
       const tex = textures.get(name);
+      // The same key again: its last flower opens out and a fresh one takes its place.
+      if (note !== null && note >= 0)
+        for (const old of blooms) if (old.active && old.note === note) beginOut(old);
       const b = free();
       if (!tex || !b) return;
       b.flower.texture = tex.flower;
@@ -207,7 +222,7 @@ export const pressedBloom = defineAnimation({
       if (trigger.note === null) {
         // Mapped trigger: the opening bouquet in, or out again.
         if (state.bouquetUp) {
-          for (const b of blooms) if (b.active && b.note === -1 && b.out < 0) b.out = 0;
+          for (const b of blooms) if (b.active && b.note === -1) beginOut(b);
           state.bouquetUp = false;
         } else {
           for (const f of BOUQUET) {
@@ -231,14 +246,15 @@ export const pressedBloom = defineAnimation({
       const x = W * (0.08 + 0.84 * across);
       const y = H * (0.2 + 0.6 * ((Math.sin(note * 2.399) + 1) / 2));
       const rot = (((note * 37) % 60) - 30) * (Math.PI / 180);
-      start(name, x, y, rot, Math.min(W, H) * 0.32 * p.size, note);
+      // Harder hits bloom bigger.
+      start(name, x, y, rot, Math.min(W, H) * 0.32 * p.size * (0.45 + 0.55 * trigger.value), note);
     }
 
     // Let go: open out, unless the sustain pedal holds it or the flower is set to stay.
     if (p.onRelease === 'open out') {
       for (const b of blooms) {
         if (!b.active || b.out >= 0 || b.note === null || b.note < 0) continue;
-        if (!inputs.held.has(b.note) && !inputs.sustain && b.age > p.bloomTime * 0.4) b.out = 0;
+        if (!inputs.held.has(b.note) && !inputs.sustain && b.age > p.bloomTime * 0.4) beginOut(b);
       }
     }
 
@@ -253,7 +269,7 @@ export const pressedBloom = defineAnimation({
       const k = Math.min(1, b.age / p.bloomTime);
       const e = easeOut(k);
       let scale = 0.25 + 0.75 * e;
-      let rot = b.rot * (1 + 1.8 * (1 - e));
+      let rot = currentRot(b);
       let alpha = Math.min(1, k * 1.6);
       let spread = 1;
       if (b.out >= 0) {
@@ -261,7 +277,7 @@ export const pressedBloom = defineAnimation({
         const q = Math.min(1, b.out / OUT_TIME);
         const o = easeInOut(q);
         scale *= 1 + 0.7 * o;
-        rot = b.rot * (1 - o);
+        rot = b.outFrom * (1 - o);
         alpha *= 1 - o;
         spread = 1 + 1.8 * o;
         if (q >= 1) {

@@ -759,6 +759,13 @@ button.tool.toggle.on {
   font-size: 11px;
   color: var(--cream-soft);
 }
+.bound-note {
+  font-size: 12px;
+  color: var(--leaf);
+  padding: 5px 8px;
+  border: 1px dashed var(--leaf-deep);
+  border-radius: 5px;
+}
 .colour-field {
   display: flex;
   align-items: center;

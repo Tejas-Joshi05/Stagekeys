@@ -22,6 +22,8 @@ export const bloom = defineAnimation({
   inputs: ['trigger', 'velocity'],
   defaultSize: { width: 700, height: 700 },
   defaultBindings: [{ param: 'size', source: 'velocity', min: 0.25, max: 1 }],
+  // Every parameter is read in update, so edits apply without a restart.
+  rebuildOn: [],
   params: z.object({
     size: param.number('Size', 0.8, 0.05, 1),
     colour: param.colour('Colour', '#ff5fa2'),

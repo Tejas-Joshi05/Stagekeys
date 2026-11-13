@@ -10,6 +10,8 @@ export const pulse = defineAnimation({
   description: 'A shape that pulses on each note and settles back to its resting size.',
   inputs: ['trigger', 'velocity'],
   defaultSize: { width: 400, height: 400 },
+  // Every parameter is read in update, so edits apply without a restart.
+  rebuildOn: [],
   params: z.object({
     colour: param.colour('Colour', '#5b8cff'),
     shape: param.choice('Shape', ['circle', 'square', 'ring'], 'circle'),

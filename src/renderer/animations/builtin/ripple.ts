@@ -21,6 +21,8 @@ export const ripple = defineAnimation({
   description: 'Rings expand from a point on each note. Optionally the point moves with the pitch.',
   inputs: ['trigger', 'velocity'],
   defaultSize: { width: 900, height: 600 },
+  // Every parameter is read in update, so edits apply without a restart.
+  rebuildOn: [],
   params: z.object({
     colour: param.colour('Colour', '#7df0d0'),
     rings: param.integer('Rings per note', 3, 1, 8),

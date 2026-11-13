@@ -65,6 +65,12 @@ export interface AnimationDefinition<S extends z.ZodObject, State> {
   teardown(state: State): void;
   /** Draw the finished state, for thumbnails and the PNG/PDF backup export. */
   showFinal?(state: State, params: z.infer<S>): void;
+  /**
+   * Parameters read in `setup` (layout, counts, text). Changing one rebuilds
+   * the instance; every other parameter is picked up live, so tweaking a colour
+   * in the editor does not restart the animation. Leave out to rebuild on any change.
+   */
+  rebuildOn?: readonly (keyof z.infer<S> & string)[];
   /** Starting values that suit the slide it is placed on (light inks on dark slides, and so on). */
   paramsFor?(slide: { dark: boolean }): Partial<z.infer<S>>;
 }
@@ -94,6 +100,8 @@ export interface RegisteredAnimation {
   update(state: unknown, frame: FrameInfo, inputs: AnimationInputs<ParamValues>): void;
   teardown(state: unknown): void;
   showFinal: ((state: unknown, params: ParamValues) => void) | null;
+  /** Parameters that need a rebuild when changed; null means all of them. */
+  rebuildOn: readonly string[] | null;
   /** Parameters to store on a newly placed instance; empty means "all defaults". */
   paramsFor(slide: { dark: boolean }): ParamValues;
 }
@@ -130,6 +138,7 @@ export function defineAnimation<S extends z.ZodObject, State>(
       def.update(state as State, frame, inputs as AnimationInputs<P>),
     teardown: (state) => def.teardown(state as State),
     showFinal: showFinal ? (state, params) => showFinal(state as State, params as P) : null,
+    rebuildOn: def.rebuildOn ?? null,
     paramsFor: (slide) => ({ ...(def.paramsFor?.(slide) ?? {}) }) as ParamValues,
   };
 }
