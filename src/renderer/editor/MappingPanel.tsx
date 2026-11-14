@@ -17,6 +17,7 @@ import {
   carriesValue,
   controlOfMapping,
   controlPicker,
+  describeAction,
   describeInput,
   mappingTouches,
   parseMappingFile,
@@ -599,32 +600,20 @@ function ControlEditor({
 // ── Everything mapped, as sentences ─────────────────────────────────────────
 
 function actionSentence(m: Mapping, deck: Deck): string {
-  const a = m.action;
-  const label = ACTION_LABELS[a.type as MappableType] ?? a.type;
-  const elementName = (id: string): string => {
-    for (const slide of deck.slides) {
-      const el = slide.elements.find((e) => e.id === id);
-      if (el && el.type === 'animation')
-        return el.name || getAnimation(el.animationId)?.name || 'animation';
-    }
-    return 'a missing animation';
-  };
-  switch (a.type) {
-    case 'nav.goto':
-      return `Go to slide ${a.index + 1}`;
-    case 'nav.gotoNamed': {
-      const i = deck.slides.findIndex((s) => s.id === a.slideId);
-      return i < 0
-        ? 'Go to a missing slide'
-        : `Go to “${deck.slides[i]?.name || `slide ${i + 1}`}”`;
-    }
-    case 'anim.trigger':
-      return `Play ${elementName(a.elementId)}`;
-    case 'anim.setParam':
-      return `Change ${a.param} of ${elementName(a.elementId)}`;
-    default:
-      return label;
-  }
+  return describeAction(m.action, {
+    animation: (id) => {
+      for (const slide of deck.slides) {
+        const el = slide.elements.find((e) => e.id === id);
+        if (el && el.type === 'animation')
+          return el.name || getAnimation(el.animationId)?.name || 'animation';
+      }
+      return null;
+    },
+    slide: (id) => {
+      const index = deck.slides.findIndex((s) => s.id === id);
+      return index < 0 ? null : { index, name: deck.slides[index]?.name ?? '' };
+    },
+  });
 }
 
 // ── Zones ───────────────────────────────────────────────────────────────────

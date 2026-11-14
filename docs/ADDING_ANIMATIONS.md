@@ -82,6 +82,13 @@ Only numeric parameters can be bound. A binding follows velocity, a CC knob, pit
 
 Optional `paramsFor({ dark })` returns starting values for a newly placed instance, picked from the slide's background. The ASCII garden uses it to print cream ink that glows on dark slides and keep the website's olive-on-cream riso look on light ones.
 
+## Telling the presenter view about it
+
+Two optional functions on the definition:
+
+- `progress(state)` returns `{ done, total }` for animations that are stepped through with key presses. The presenter view shows "revealed 2 of 5" so the speaker knows how many presses are left. It is polled ten times a second, so keep it to reading two numbers.
+- `listensToSound(params)` returns true if, with these settings, the animation moves to the sound input by itself (not through a binding). The pre-show check uses it to warn that sound input is off.
+
 ## Artwork
 
 Images an animation samples or draws live in `animations/assets/` and are listed in `art.ts`. They are imported with `?inline`, so reading their pixels back from a canvas is allowed even from `file://` in the packaged app. `preloadArt()` decodes them all at startup, so the first frame on stage, thumbnails and exports never show an empty animation.

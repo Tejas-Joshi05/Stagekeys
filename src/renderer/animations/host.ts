@@ -4,6 +4,7 @@ import { applyCurve } from '../mapping';
 import type { MidiInputState, MidiMessage } from '../midi';
 import type {
   AnimationInputs,
+  AnimationProgress,
   BindingSource,
   ParamValues,
   RegisteredAnimation,
@@ -268,6 +269,17 @@ export class AnimationInstance {
       this.def.showFinal(this.state, this.baseParams);
     } catch (e) {
       this.fail('update', e);
+    }
+  }
+
+  /** How far a stepped animation has got, or null if it is not one (or has failed). */
+  progress(): AnimationProgress | null {
+    if (!this.alive || !this.def.progress) return null;
+    try {
+      const p = this.def.progress(this.state);
+      return Number.isFinite(p.done) && Number.isFinite(p.total) ? p : null;
+    } catch {
+      return null;
     }
   }
 

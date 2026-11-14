@@ -39,6 +39,8 @@ export const StageStateSchema = z.object({
   cc: z.array(z.tuple([z.number(), z.number()])).default([]),
   pitchBend: z.number().default(0),
   sustain: z.boolean().default(false),
+  /** Key-press steps revealed on the current slide (text reveals, step sequences), if it has any. */
+  steps: z.object({ done: z.number().int(), total: z.number().int() }).optional(),
   /** Sound input on the stage, for the meter in the presenter view. */
   audio: z
     .object({

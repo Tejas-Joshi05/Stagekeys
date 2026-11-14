@@ -28,7 +28,13 @@ export function createEmptyDeck(title = 'Untitled', now: Date = new Date()): Dec
   const stamp = now.toISOString();
   return {
     schemaVersion: CURRENT_SCHEMA_VERSION,
-    meta: { title, created: stamp, updated: stamp, canvas: { ...DEFAULT_CANVAS } },
+    meta: {
+      title,
+      created: stamp,
+      updated: stamp,
+      canvas: { ...DEFAULT_CANVAS },
+      targetMinutes: 0,
+    },
     slides: [createSlide()],
     mappings: [],
     zones: [],

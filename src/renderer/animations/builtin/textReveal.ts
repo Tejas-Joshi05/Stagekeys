@@ -110,6 +110,8 @@ export const textReveal = defineAnimation({
     // Text objects live under root; the host destroys them.
   },
 
+  progress: (state) => ({ done: state.revealed, total: state.units.length }),
+
   showFinal(state) {
     for (const u of state.units) {
       u.shown = true;

@@ -185,6 +185,11 @@ export class StagePlayer {
     this.scene?.setParam(elementId, name, value);
   }
 
+  /** Steps revealed so far on the current slide, or null if nothing on it is stepped through. */
+  progress(): { done: number; total: number } | null {
+    return this.scene?.progress() ?? null;
+  }
+
   /** Back to a calm, known state on the current slide: no black, no transition, animations reset. */
   panic(): void {
     this.finishTransition();

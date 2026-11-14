@@ -51,6 +51,8 @@ test('animations play, the show survives a stress run, and export works', async 
     'step-sequence',
     'ascii-vignette',
     'midi-readout',
+    'note-trails',
+    'glyph-burst',
   ]) {
     await win.getByTestId('add-slide').click();
     await win.getByTestId('add-animation').selectOption(id);
@@ -58,7 +60,7 @@ test('animations play, the show survives a stress run, and export works', async 
     await win.getByTestId('add-text').click();
   }
   await win.getByTestId('add-animation').selectOption('pulse');
-  await expect(win.getByTestId('slide-thumb')).toHaveCount(8);
+  await expect(win.getByTestId('slide-thumb')).toHaveCount(10);
 
   // The last animation follows the sound input through a binding.
   await win.getByTestId('add-binding').click();
@@ -69,6 +71,9 @@ test('animations play, the show survives a stress run, and export works', async 
     .selectOption({ label: 'Sound: loudness' });
   await expect(win.getByTestId('bound-note')).toContainText('sound: loudness');
 
+  // A planned length for the talk, for the countdown in the presenter view.
+  await win.getByTestId('talk-length').fill('20');
+
   await win.getByTestId('save').click();
   await expect(win.getByTestId('save-status')).toHaveText('Saved');
 
@@ -78,6 +83,15 @@ test('animations play, the show survives a stress run, and export works', async 
   await win.getByTestId('rehearse').click();
   const stage = await stagePromise;
   await stage.waitForFunction(() => window.__stagekeysStage !== undefined);
+
+  // The presenter view: a countdown to the planned length, and what the keys do on this slide.
+  await expect(win.getByTestId('presenter-countdown')).toContainText('left');
+  await expect(win.getByTestId('cheat-sheet')).toContainText('How hard you play');
+  await expect(win.getByTestId('cheat-sheet')).toContainText('Size of Bloom');
+  // The deck has a sound-reactive slide and sound input is off: said once, quietly.
+  await expect(win.getByTestId('notice').filter({ hasText: 'sound input is off' })).toBeVisible();
+  // No stepped animation on this slide, so no reveal counter.
+  await expect(win.getByTestId('presenter-steps')).toHaveCount(0);
 
   // Sound input switches on from the stage keyboard; the test feeds it levels.
   await stage.keyboard.press('l');
@@ -110,6 +124,20 @@ test('animations play, the show survives a stress run, and export works', async 
   await expect
     .poll(() => stage.evaluate(() => window.__stagekeysStage?.fps() ?? 0), { timeout: 10_000 })
     .toBeGreaterThan(30);
+
+  // Slide 5 is a text reveal: the presenter view counts the key presses left.
+  await stage.keyboard.press('Home');
+  for (let i = 0; i < 4; i++) await stage.keyboard.press('ArrowRight');
+  await expect(win.getByTestId('presenter-steps')).toHaveText('revealed 0 of 3');
+  await stage.evaluate(() => window.__stagekeysMidi?.([0x90, 60, 100]));
+  await expect(win.getByTestId('presenter-steps')).toHaveText('revealed 1 of 3');
+  await stage.evaluate(() => {
+    window.__stagekeysMidi?.([0x90, 62, 100]);
+    window.__stagekeysMidi?.([0x90, 64, 100]);
+  });
+  await expect(win.getByTestId('presenter-steps')).toHaveText('all 3 revealed');
+  await win.getByTestId('notes-bigger').click();
+  await expect(win.getByTestId('presenter-notes')).toHaveCSS('font-size', '28px');
 
   // Piano and the keys picture switch on from the stage keyboard and are remembered.
   await stage.keyboard.press('p');
@@ -148,7 +176,7 @@ test('animations play, the show survives a stress run, and export works', async 
       async () =>
         (await readdir(exportDir).catch(() => [])).filter((f) => f.endsWith('.png')).length,
     )
-    .toBe(8);
+    .toBe(10);
   await menuAction('file.exportPdf');
   await expect
     .poll(async () => (await readdir(exportDir).catch(() => [])).some((f) => f.endsWith('.pdf')))

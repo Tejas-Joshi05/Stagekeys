@@ -6,6 +6,7 @@ What to do so the talk runs without surprises. Stagekeys guards against crashes 
 
 - Open the final deck and run one full **Rehearse** on the projector or a second screen. The report afterwards shows time per slide.
 - Plug in the MPK mini, open the MIDI & sound tab and press a pad and turn a knob. If the keys picture does not light the right pad or knob, use **Teach the pads** / **Teach the knobs**.
+- Type the slot length in minutes into the toolbar's talk length box. The presenter view then counts down and turns rose near the end.
 - Decide on the piano sound now (⇧⌘P). It is remembered.
 - If any slide reacts to sound: switch **Sound input** on in the MIDI & sound tab **in the installed app, before the show**, and allow the microphone when macOS asks. The stage never asks (that would be a dialog mid-show), and macOS may ask again after the app is reinstalled. Speak and watch the meter move, then set the sensitivity.
 - Keep the deck's photos at normal sizes. Stagekeys shrinks anything over 3840 pixels, but smaller files load faster.
@@ -18,6 +19,8 @@ What to do so the talk runs without surprises. Stagekeys guards against crashes 
 4. Press **Present**. The stage prepares every slide for about half a second (images decoded, shaders ready), then shows the first slide.
 5. If slides react to sound, check the meter in the MIDI & sound tab moves when you speak. A louder room needs a stiffer sensitivity than your desk did; a knob mapped to "Set sound sensitivity" lets you change it mid-talk.
 6. If sound should come from the venue speakers, choose the output in macOS Sound settings before presenting.
+
+When the show starts, read any notices in the corner of the presenter view: they say if the keyboard is not connected or if sound-reactive slides will not hear anything. Under the notes, "On this slide" lists what each pad, knob and key does on the slide you are on.
 
 ## If something goes wrong
 

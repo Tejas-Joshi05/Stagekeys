@@ -11,6 +11,7 @@ import {
   moveSlide,
   reorder,
   setSlideNotes,
+  setTargetMinutes,
   updateElements,
 } from './commands';
 import { createAnimation, createEmptyDeck, createShape, createText } from './factory';
@@ -18,6 +19,7 @@ import { History } from './history';
 import { parseDeck, serialiseDeck } from './load';
 import { DeckVersionError, migrateDeck, migrations, type Migration } from './migrations';
 import v1Fixture from './migrations/fixtures/v1-deck.json';
+import v2Fixture from './migrations/fixtures/v2-deck.json';
 import { CURRENT_SCHEMA_VERSION, DeckSchema, type Deck } from './schema';
 import { openSession, redo, sealHistory, undo, useDeckStore } from './store';
 
@@ -86,13 +88,14 @@ describe('deck schema', () => {
   });
 });
 
-describe('migration 001: version 1 decks open as version 2', () => {
+describe('migration 001: version 1 decks keep everything they had', () => {
   it('opens the version 1 fixture unchanged apart from the version', () => {
     const result = parseDeck(JSON.stringify(v1Fixture));
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     expect(result.migratedFrom).toBe(1);
-    expect(result.deck.schemaVersion).toBe(2);
+    expect(result.deck.schemaVersion).toBe(CURRENT_SCHEMA_VERSION);
+    expect(result.deck.meta.targetMinutes).toBe(0);
     expect(result.deck.meta.title).toBe('Version 1 fixture');
     expect(result.deck.mappings).toHaveLength(1);
     const garden = result.deck.slides[0]?.elements[1];
@@ -129,7 +132,46 @@ describe('migration 001: version 1 decks open as version 2', () => {
     const result = parseDeck(serialiseDeck(deck));
     expect(result.ok).toBe(true);
     // A version 1 app must not be handed such a deck as if it were version 1.
-    expect(JSON.parse(serialiseDeck(deck))).toMatchObject({ schemaVersion: 2 });
+    expect(JSON.parse(serialiseDeck(deck)).schemaVersion).toBeGreaterThanOrEqual(2);
+  });
+});
+
+describe('migration 002: version 2 decks gain a talk length of "none"', () => {
+  it('opens the version 2 fixture with no plan and nothing else changed', () => {
+    const result = parseDeck(JSON.stringify(v2Fixture));
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.migratedFrom).toBe(2);
+    expect(result.deck.schemaVersion).toBe(3);
+    expect(result.deck.meta.targetMinutes).toBe(0);
+    expect(result.deck.meta.title).toBe('Version 2 fixture');
+    expect(result.deck.mappings).toHaveLength(2);
+    const garden = result.deck.slides[0]?.elements[1];
+    if (garden?.type !== 'animation') throw new Error('expected the garden');
+    expect(garden.bindings.map((b) => b.source)).toEqual(['cc', 'velocity', 'audioLevel']);
+  });
+
+  it('keeps a talk length that is already there and survives a deck without meta', () => {
+    const table = { 2: migrations[2] as Migration };
+    const kept = migrateDeck(
+      { schemaVersion: 2, meta: { title: 't', targetMinutes: 15 } },
+      3,
+      table,
+    );
+    expect(kept.deck.meta).toEqual({ title: 't', targetMinutes: 15 });
+    expect(migrateDeck({ schemaVersion: 2 }, 3, table).deck).toEqual({ schemaVersion: 3 });
+  });
+
+  it('sets and clamps the talk length as one undoable edit', () => {
+    openSession(createEmptyDeck(), '/tmp/t.stagekeys', false);
+    setTargetMinutes(15);
+    expect(deckNow().meta.targetMinutes).toBe(15);
+    setTargetMinutes(9999);
+    expect(deckNow().meta.targetMinutes).toBe(600);
+    setTargetMinutes(Number.NaN);
+    expect(deckNow().meta.targetMinutes).toBe(600);
+    undo();
+    expect(deckNow().meta.targetMinutes).toBe(0);
   });
 });
 

@@ -2,7 +2,7 @@ import { useEffect, useState, type ReactNode } from 'react';
 import type { DisplayInfo } from '../../ipc/contract';
 import { dispatch, type Action } from '../actions';
 import { listAnimations } from '../animations';
-import { setTitle, useDeckStore } from '../deck';
+import { setTargetMinutes, setTitle, useDeckStore } from '../deck';
 import { MidiStatusBadge, useMidiStore } from '../midi';
 import { setShowDisplay, usePresenterStore } from '../presenter';
 import { api } from '../shared/api';
@@ -103,6 +103,7 @@ function DisplayPicker() {
 
 export function Toolbar() {
   const title = useDeckStore((s) => s.deck?.meta.title ?? '');
+  const targetMinutes = useDeckStore((s) => s.deck?.meta.targetMinutes ?? 0);
   const canUndo = useDeckStore((s) => s.canUndo);
   const canRedo = useDeckStore((s) => s.canRedo);
   const undoLabel = useDeckStore((s) => s.undoLabel);
@@ -267,6 +268,25 @@ export function Toolbar() {
       </div>
 
       <div className="tool-group show">
+        <label
+          className="talk-length"
+          title="Planned length of the talk in minutes. The presenter view counts down to it. Leave empty for no countdown."
+        >
+          <input
+            type="number"
+            min={0}
+            max={600}
+            step={1}
+            placeholder="–"
+            value={targetMinutes > 0 ? targetMinutes : ''}
+            onChange={(e) =>
+              setTargetMinutes(e.target.value.trim() === '' ? 0 : Number(e.target.value))
+            }
+            aria-label="Talk length in minutes"
+            data-testid="talk-length"
+          />
+          <span>min</span>
+        </label>
         <DisplayPicker />
         <button
           onClick={act({ type: 'show.start', rehearsal: true })}

@@ -296,6 +296,19 @@ export class SlideScene {
     return animation != null;
   }
 
+  /** Steps revealed so far across the slide's stepped animations, or null if it has none. */
+  progress(): { done: number; total: number } | null {
+    let done = 0;
+    let total = 0;
+    for (const view of this.views.values()) {
+      const p = view.animation?.progress();
+      if (!p) continue;
+      done += p.done;
+      total += p.total;
+    }
+    return total > 0 ? { done, total } : null;
+  }
+
   /** Puts every animation back to its starting state (panic). */
   resetAnimations(): void {
     for (const view of this.views.values()) view.animation?.reset();

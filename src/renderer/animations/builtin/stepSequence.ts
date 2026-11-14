@@ -173,6 +173,8 @@ export const stepSequence = defineAnimation({
     // Everything lives under root; the host destroys it.
   },
 
+  progress: (state) => ({ done: state.revealed, total: state.steps.length }),
+
   showFinal(state) {
     state.revealed = state.steps.length;
     state.steps.forEach((s, i) => {

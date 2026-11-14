@@ -334,6 +334,7 @@ export async function runStage(root: HTMLElement): Promise<void> {
       cc: [...midi.input.cc.entries()].filter(([, v]) => v > 0),
       pitchBend: midi.input.pitchBend,
       sustain: midi.input.sustain,
+      steps: player.progress() ?? undefined,
       audio: { status: useAudioInputStore.getState().status, ...audioInput.read(now) },
     };
     send(state);

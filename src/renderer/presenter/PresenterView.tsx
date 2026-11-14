@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { Action } from '../actions';
 import { AUDIO_STATUS_TEXT, AudioMeter, type AudioLevels } from '../audio';
 import { useDeckStore } from '../deck';
@@ -6,11 +6,25 @@ import { KeysOverlayView, MidiMonitorView, MidiStatusBadge } from '../midi';
 import { useSlideImage } from '../render';
 import { useSettings } from '../shared/settings';
 import { formatDuration } from '../shared/util';
+import { cheatSheet } from './cheatSheet';
 import { presenterInput, sendToStage, usePresenterStore } from './control';
+import { talkClock } from './preflight';
 
 const NO_SOUND: AudioLevels = { active: false, level: 0, bass: 0, mid: 0, treble: 0, beat: 0 };
 /** The stage's sound levels, as last reported (ten times a second). */
 const stageAudio = (): AudioLevels => usePresenterStore.getState().stage?.audio ?? NO_SOUND;
+
+const NOTES_SIZE_KEY = 'stagekeys.presenter.notesSize';
+const NOTES_SIZES = [18, 23, 28, 34, 42] as const;
+
+function readNotesSize(): number {
+  try {
+    const saved = Number(globalThis.localStorage?.getItem(NOTES_SIZE_KEY));
+    return NOTES_SIZES.includes(saved as (typeof NOTES_SIZES)[number]) ? saved : 23;
+  } catch {
+    return 23;
+  }
+}
 
 function Clock() {
   const [now, setNow] = useState(() => new Date());
@@ -37,7 +51,26 @@ export function PresenterView() {
   const keysOnStage = useSettings((s) => s.keysOverlay.stage);
   const keysHere = useSettings((s) => s.keysOverlay.control);
 
+  const profile = useSettings((s) => s.controller);
+  const [notesSize, setNotesSize] = useState(readNotesSize);
+  const resizeNotes = (step: 1 | -1) => () => {
+    const at = NOTES_SIZES.indexOf(notesSize as (typeof NOTES_SIZES)[number]);
+    const next = NOTES_SIZES[Math.min(NOTES_SIZES.length - 1, Math.max(0, at + step))] ?? 23;
+    setNotesSize(next);
+    try {
+      globalThis.localStorage?.setItem(NOTES_SIZE_KEY, String(next));
+    } catch {
+      // Not remembered; harmless.
+    }
+  };
+
   const index = stage?.slideIndex ?? 0;
+  const lines = useMemo(
+    () => (deck ? cheatSheet(deck, index, profile) : []),
+    [deck, index, profile],
+  );
+  const clock = talkClock(stage?.elapsedMs ?? 0, deck?.meta.targetMinutes ?? 0);
+  const steps = stage?.steps;
   const current = deck?.slides[index];
   const next = deck?.slides[index + 1];
   const currentImage = useSlideImage(current, deck, path, 960, 0);
@@ -52,9 +85,25 @@ export function PresenterView() {
         <span className="presenter-count" data-testid="presenter-slide-count">
           Slide {index + 1} / {stage?.slideCount ?? deck?.slides.length ?? 0}
         </span>
+        {steps && (
+          <span
+            className={steps.done >= steps.total ? 'presenter-steps done' : 'presenter-steps'}
+            data-testid="presenter-steps"
+            title="Key-press reveals on this slide"
+          >
+            {steps.done >= steps.total
+              ? `all ${steps.total} revealed`
+              : `revealed ${steps.done} of ${steps.total}`}
+          </span>
+        )}
         <span className="presenter-timer" data-testid="presenter-timer">
           {formatDuration(stage?.elapsedMs ?? 0)}
         </span>
+        {clock.state !== 'none' && (
+          <span className={`presenter-countdown ${clock.state}`} data-testid="presenter-countdown">
+            {clock.text}
+          </span>
+        )}
         <span className="presenter-slide-time" title="Time on this slide">
           this slide {formatDuration(stage?.slideElapsedMs ?? 0)}
         </span>
@@ -89,10 +138,46 @@ export function PresenterView() {
         </section>
 
         <section className="presenter-notes">
-          <div className="label">Notes</div>
-          <div className="notes-text" data-testid="presenter-notes">
+          <div className="label notes-label">
+            Notes
+            <span className="notes-size">
+              <button
+                className="icon"
+                onClick={resizeNotes(-1)}
+                disabled={notesSize === NOTES_SIZES[0]}
+                title="Smaller notes"
+                aria-label="Smaller notes"
+              >
+                A−
+              </button>
+              <button
+                className="icon"
+                onClick={resizeNotes(1)}
+                disabled={notesSize === NOTES_SIZES[NOTES_SIZES.length - 1]}
+                title="Bigger notes"
+                aria-label="Bigger notes"
+                data-testid="notes-bigger"
+              >
+                A+
+              </button>
+            </span>
+          </div>
+          <div className="notes-text" style={{ fontSize: notesSize }} data-testid="presenter-notes">
             {current?.notes || <span className="muted">No notes for this slide.</span>}
           </div>
+          {lines.length > 0 && (
+            <div className="cheat-sheet" data-testid="cheat-sheet">
+              <div className="label">On this slide</div>
+              <ul>
+                {lines.map((line, i) => (
+                  <li key={i} className={line.here ? 'here' : ''}>
+                    <span className="cheat-input">{line.input}</span>
+                    <span className="cheat-does">{line.does}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
         </section>
 
         <section className="presenter-side">

@@ -28,6 +28,19 @@ export function setTitle(title: string): void {
   );
 }
 
+/** The planned length of the talk in minutes; 0 clears the plan. */
+export function setTargetMinutes(minutes: number): void {
+  if (!Number.isFinite(minutes)) return;
+  const value = Math.min(600, Math.max(0, minutes));
+  exec(
+    'Set talk length',
+    (d) => {
+      d.meta.targetMinutes = value;
+    },
+    { coalesceKey: 'targetMinutes' },
+  );
+}
+
 // ── Slides ──────────────────────────────────────────────────────────────────
 
 export function addSlide(): void {

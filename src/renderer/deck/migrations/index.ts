@@ -11,11 +11,15 @@
  */
 import { CURRENT_SCHEMA_VERSION } from '../schema';
 import { audioBindings } from './001-audio-bindings';
+import { talkLength } from './002-talk-length';
 
 export type Migration = (deck: Record<string, unknown>) => Record<string, unknown>;
 
 /** Keyed by the version being upgraded FROM. Version 1 is the first released schema. */
-export const migrations: Readonly<Record<number, Migration>> = { 1: audioBindings };
+export const migrations: Readonly<Record<number, Migration>> = {
+  1: audioBindings,
+  2: talkLength,
+};
 
 export class DeckVersionError extends Error {
   constructor(

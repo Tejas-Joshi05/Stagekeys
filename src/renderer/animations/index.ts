@@ -4,6 +4,7 @@ export {
   type AnimationContext,
   type AnimationDefinition,
   type AnimationInputs,
+  type AnimationProgress,
   type BindingSource,
   type FrameInfo,
   type MidiInputKind,

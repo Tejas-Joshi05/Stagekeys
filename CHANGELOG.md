@@ -2,7 +2,24 @@
 
 Stagekeys follows semantic versioning. Deck files carry their own `schemaVersion`.
 
-## 0.3.0 (unreleased)
+## 0.4.0 (unreleased)
+
+Deck schema is now version 3 (the planned talk length). Older decks open unchanged and are saved as version 3.
+
+### Help while presenting
+
+- **Talk countdown**: set the planned length in minutes in the toolbar (next to the display picker). The presenter view counts down beside the timer, turns rose for the last tenth of the talk (at least the last minute), and shows how far over you are once time is up. Leave it empty for no countdown.
+- **Reveal counter**: on slides with a Text reveal or Step sequence, the presenter view shows "revealed 2 of 5", then "all 5 revealed", so you know how many key presses are left before moving on.
+- **On this slide**: under the notes, a plain list of what the controller does on the slide being shown: this slide's mappings, what each animation reacts to (keys, knobs, wheels, sound), then the mappings that work everywhere.
+- **Pre-show checks**: when a show starts, quiet notices say if no MIDI keyboard is connected, if slides react to sound while sound input is off or cannot hear anything, if the deck uses animations this version does not have, or if mappings point at things that no longer exist. They never stop the show.
+- **Notes size**: A− and A+ in the presenter view; remembered.
+
+### New animations
+
+- **Note trails**: a piano roll that draws itself as you play. Each key sends up a bar from its place along the edge for as long as it is held, and the bar drifts away when you let go. Colours run from low notes to high; harder hits can be brighter or wider; bars can travel up or down.
+- **Glyph burst**: every key throws a handful of glyphs into the air from where that key sits, and they tumble and fall back. Harder hits throw more, further. A mapped pad sets one off too, and optionally so does a clap or a beat in the sound input.
+
+## 0.3.0
 
 Deck schema is now version 2. Decks from 0.1.0 and 0.2.0 open unchanged and are saved as version 2; a deck saved by 0.3.0 does not open in older versions.
 

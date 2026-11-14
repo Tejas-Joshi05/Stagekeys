@@ -2,7 +2,10 @@ import { z } from 'zod';
 import { CurveSchema, MappingSchema, ZoneSchema } from '../mapping';
 
 /**
- * Deck schema, version 2.
+ * Deck schema, version 3.
+ *
+ * Version 3 (Stagekeys 0.4.0): `meta.targetMinutes`, the planned length of the
+ * talk, for the countdown in the presenter view.
  *
  * Version 2 (Stagekeys 0.3.0): animation bindings can follow the sound input
  * (`audioLevel`, `audioBass`, `audioMid`, `audioTreble`, `audioBeat`).
@@ -11,7 +14,7 @@ import { CurveSchema, MappingSchema, ZoneSchema } from '../mapping';
  *   1. bump CURRENT_SCHEMA_VERSION,
  *   2. add a numbered migration in ./migrations with a test and fixture.
  */
-export const CURRENT_SCHEMA_VERSION = 2;
+export const CURRENT_SCHEMA_VERSION = 3;
 
 const finite = z.number().refine(Number.isFinite, 'Must be a finite number');
 const colour = z.string().regex(/^#[0-9a-fA-F]{6}$/, 'Expected a #rrggbb colour');
@@ -136,6 +139,8 @@ export const DeckSchema = z.object({
     created: z.string(),
     updated: z.string(),
     canvas: z.object({ width: finite.min(16), height: finite.min(16) }),
+    /** Planned length of the talk in minutes. 0 means no plan: the presenter view only counts up. */
+    targetMinutes: finite.min(0).max(600).default(0),
   }),
   slides: z.array(SlideSchema).min(1),
   mappings: z.array(MappingSchema).default([]),

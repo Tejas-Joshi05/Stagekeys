@@ -1,3 +1,8 @@
+import { DEFAULT_SETTINGS } from '../../ipc/settings';
+import { createAnimation, createEmptyDeck } from '../deck';
+import type { Mapping } from '../mapping';
+import { cheatSheet } from './cheatSheet';
+import { preflight, talkClock } from './preflight';
 import { describe, expect, it } from 'vitest';
 import { ControlMessageSchema, StageMessageSchema } from './messages';
 import { ShowTimeline } from './timeline';
@@ -86,5 +91,143 @@ describe('show messages', () => {
     expect(StageMessageSchema.safeParse({ t: 'notice', level: 'warn', message: 'x' }).success).toBe(
       true,
     );
+  });
+});
+
+describe('pre-show checks', () => {
+  const ready = { midiConnected: true, soundEnabled: false, soundBroken: false };
+
+  it('says nothing when everything is in place', () => {
+    expect(preflight(createEmptyDeck(), ready)).toEqual([]);
+  });
+
+  it('warns about a missing keyboard and points at the fallback keys', () => {
+    const warnings = preflight(createEmptyDeck(), { ...ready, midiConnected: false });
+    expect(warnings).toHaveLength(1);
+    expect(warnings[0]).toMatch(/No MIDI keyboard/);
+  });
+
+  it('warns when slides react to sound but sound input is off or broken', () => {
+    const deck = createEmptyDeck();
+    deck.slides[0]?.elements.push(createAnimation('ascii-vignette', 'Vignette', 0, 0));
+    expect(preflight(deck, ready).join(' ')).toMatch(/sound input is off/);
+    expect(preflight(deck, { ...ready, soundEnabled: true })).toEqual([]);
+    expect(preflight(deck, { ...ready, soundEnabled: true, soundBroken: true }).join(' ')).toMatch(
+      /cannot hear anything/,
+    );
+
+    // A vignette told to ignore sound does not count; a sound binding on anything does.
+    const quiet = createEmptyDeck();
+    const still = createAnimation('ascii-vignette', 'Vignette', 0, 0);
+    still.params = { audioReacts: 'do nothing' };
+    quiet.slides[0]?.elements.push(still);
+    expect(preflight(quiet, ready)).toEqual([]);
+    const bound = createAnimation('pulse', 'Pulse', 0, 0);
+    bound.bindings.push({
+      param: 'amount',
+      source: 'audioBass',
+      controller: 1,
+      curve: 'linear',
+      min: 0,
+      max: 1,
+    });
+    quiet.slides[0]?.elements.push(bound);
+    expect(preflight(quiet, ready).join(' ')).toMatch(/sound input is off/);
+  });
+
+  it('counts unknown animations and mappings that point at nothing', () => {
+    const deck = createEmptyDeck();
+    deck.slides[0]?.elements.push(createAnimation('from-the-future', 'Mystery', 0, 0));
+    const mapping = (action: Mapping['action']): Mapping => ({
+      id: `m${deck.mappings.length}`,
+      name: '',
+      enabled: true,
+      trigger: { kind: 'noteOn' },
+      filters: {},
+      action,
+      curve: 'linear',
+      min: 0,
+      max: 1,
+    });
+    deck.mappings.push(
+      mapping({ type: 'anim.trigger', elementId: 'gone' }),
+      mapping({ type: 'nav.gotoNamed', slideId: 'gone' }),
+      mapping({ type: 'nav.next' }),
+      { ...mapping({ type: 'anim.trigger', elementId: 'also-gone' }), enabled: false },
+    );
+    const text = preflight(deck, ready).join(' ');
+    expect(text).toMatch(/1 animation in this deck is not in this version/);
+    expect(text).toMatch(/2 mappings point at something that no longer exists/);
+  });
+});
+
+describe('talk countdown', () => {
+  it('shows nothing without a planned length', () => {
+    expect(talkClock(60_000, 0)).toEqual({ text: '', state: 'none' });
+  });
+
+  it('counts down, warns near the end and counts up once over', () => {
+    expect(talkClock(0, 15)).toEqual({ text: '15:00 left', state: 'ok' });
+    expect(talkClock(5 * 60_000, 15)).toEqual({ text: '10:00 left', state: 'ok' });
+    // The last tenth of a 15 minute talk is 90 seconds.
+    expect(talkClock(13.5 * 60_000, 15)).toEqual({ text: '01:30 left', state: 'soon' });
+    expect(talkClock(15 * 60_000, 15)).toEqual({ text: '00:00 left', state: 'soon' });
+    expect(talkClock(15 * 60_000 + 42_000, 15)).toEqual({ text: '00:42 over', state: 'over' });
+    // A short talk still gets a full minute of warning.
+    expect(talkClock(4 * 60_000 + 1, 5).state).toBe('soon');
+    expect(talkClock(-500, 5)).toEqual({ text: '05:00 left', state: 'ok' });
+  });
+});
+
+describe('what the keys do on this slide', () => {
+  it('lists slide mappings, what animations react to, then whole-deck mappings', () => {
+    const deck = createEmptyDeck();
+    const slide = deck.slides[0];
+    if (!slide) throw new Error('no slide');
+    const garden = createAnimation('ascii-garden', '', 0, 0);
+    garden.bindings.push(
+      { param: 'wind', source: 'cc', controller: 1, curve: 'linear', min: 0, max: 1 },
+      { param: 'sway', source: 'cc', controller: 71, curve: 'linear', min: 0, max: 3 },
+      { param: 'fit', source: 'audioBass', controller: 1, curve: 'linear', min: 0.3, max: 1 },
+    );
+    const silent = createAnimation('pulse', 'Quiet pulse', 0, 0);
+    silent.listen = { mode: 'none', from: 0, to: 127 };
+    const hidden = createAnimation('ripple', 'Hidden', 0, 0);
+    hidden.hidden = true;
+    slide.elements.push(garden, silent, hidden);
+    const base = { name: '', enabled: true, curve: 'linear' as const, min: 0, max: 1 };
+    slide.mappings.push({
+      ...base,
+      id: 'm1',
+      trigger: { kind: 'noteOn' },
+      filters: { noteFrom: 36, noteTo: 36, channel: 10 },
+      action: { type: 'anim.trigger', elementId: silent.id },
+    });
+    deck.mappings.push(
+      {
+        ...base,
+        id: 'm2',
+        trigger: { kind: 'noteOn' },
+        filters: { noteFrom: 37, noteTo: 37, channel: 10 },
+        action: { type: 'nav.next' },
+      },
+      {
+        ...base,
+        id: 'm3',
+        enabled: false,
+        trigger: { kind: 'noteOn' },
+        filters: { noteFrom: 38, noteTo: 38, channel: 10 },
+        action: { type: 'nav.prev' },
+      },
+    );
+    expect(cheatSheet(deck, 0, DEFAULT_SETTINGS.controller)).toEqual([
+      { input: 'Pad 1', does: 'Play Quiet pulse', here: true },
+      { input: 'Keys', does: 'Play ASCII garden', here: true },
+      { input: 'Mod wheel', does: 'Wind (the mod wheel adds more) of ASCII garden', here: true },
+      { input: 'Knob 2', does: 'Idle sway of ASCII garden', here: true },
+      { input: 'Sound: bass', does: 'Plant size of ASCII garden', here: true },
+      { input: 'Pad 2', does: 'Next slide', here: false },
+    ]);
+    expect(cheatSheet(deck, 7, DEFAULT_SETTINGS.controller)).toEqual([]);
   });
 });

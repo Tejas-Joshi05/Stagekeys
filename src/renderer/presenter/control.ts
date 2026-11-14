@@ -1,16 +1,19 @@
 import { create } from 'zustand';
 import type { Action } from '../actions';
 import { flushSaves, getCurrentSlideIndex, serialiseDeck, useDeckStore } from '../deck';
-import { MidiInputState } from '../midi';
+import { useAudioInputStore } from '../audio';
+import { MidiInputState, useMidiStore } from '../midi';
 import { api } from '../shared/api';
 import { logger } from '../shared/log';
 import { notify } from '../shared/notify';
+import { useSettings } from '../shared/settings';
 import {
   StageMessageSchema,
   type ControlMessage,
   type StageReport,
   type StageState,
 } from './messages';
+import { preflight } from './preflight';
 
 const DISPLAY_KEY = 'stagekeys.show.display';
 
@@ -121,6 +124,15 @@ export async function startShow(rehearsal: boolean): Promise<void> {
     displayId = (displays.find((d) => !d.primary) ?? displays[0])?.id ?? null;
   }
 
+  // Looked at before MIDI and sound are handed to the stage, while this window still has them.
+  const soundStatus = useAudioInputStore.getState().status;
+  const soundEnabled = useSettings.getState().audioInput.enabled;
+  const warnings = preflight(deck, {
+    midiConnected: useMidiStore.getState().status === 'connected',
+    soundEnabled,
+    soundBroken: soundEnabled && (soundStatus === 'blocked' || soundStatus === 'no-input'),
+  });
+
   hooks.onShowStarting();
   usePresenterStore.setState({ active: true, rehearsal, stage: null, report: null });
   const started = await api().startShow({
@@ -134,7 +146,9 @@ export async function startShow(rehearsal: boolean): Promise<void> {
     usePresenterStore.setState({ active: false });
     hooks.onShowEnded();
     notify('error', `Could not start the show: ${started.error}`);
+    return;
   }
+  for (const warning of warnings) notify('warn', warning);
 }
 
 /** Sends an action to the stage window, where the show actually runs. */

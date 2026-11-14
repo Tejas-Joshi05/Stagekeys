@@ -4,7 +4,9 @@ import { z } from 'zod';
 import { MidiInputState, type MidiMessage } from '../midi';
 import { audioInput } from '../audio';
 import { rimPoint, shapeDistance, VIGNETTE_SHAPES } from './builtin/asciiVignette';
+import { burstOrigin } from './builtin/glyphBurst';
 import { asciiBar, readoutLines } from './builtin/midiReadout';
+import { barSpan, mixColour } from './builtin/noteTrails';
 import { splitUnits } from './builtin/textReveal';
 import { bindableParams, controlsFor } from './controls';
 import { defineAnimation, param, type Trigger } from './define';
@@ -72,6 +74,8 @@ describe('animation registry', () => {
       'text-reveal',
       'step-sequence',
       'midi-readout',
+      'note-trails',
+      'glyph-burst',
     ]);
     expect(new Set(ids).size).toBe(ids.length);
     expect(getAnimation('bloom')?.name).toBe('Bloom');
@@ -490,5 +494,124 @@ describe('MIDI readout', () => {
     const rawLines = readoutLines(60, 97, { ...p, show: 'raw message' });
     expect(rawLines.values).toBe('90 3C 61\nnote on, key 60, velocity 97');
     expect(readoutLines(60, 97, { ...p, show: 'key only', bars: false }).labels).toBe('which key');
+  });
+});
+
+describe('reveal progress', () => {
+  it('reports how many key-press steps are done, for the presenter view', () => {
+    const def = getAnimation('step-sequence');
+    if (!def) throw new Error('missing');
+    const instance = new AnimationInstance(
+      def,
+      config({ params: { steps: 'one\ntwo\nthree' } }),
+      vi.fn(),
+    );
+    const input = new MidiInputState();
+    expect(instance.progress()).toEqual({ done: 0, total: 3 });
+    instance.trigger(1);
+    instance.trigger(1);
+    instance.update(1 / 60, input);
+    expect(instance.progress()).toEqual({ done: 2, total: 3 });
+    instance.reset();
+    expect(instance.progress()).toEqual({ done: 0, total: 3 });
+    instance.destroy();
+    expect(instance.progress()).toBeNull();
+  });
+
+  it('is null for animations that are not stepped through, and never throws', () => {
+    const { def } = probe();
+    const plain = new AnimationInstance(def, config(), vi.fn());
+    expect(plain.progress()).toBeNull();
+    const broken = defineAnimation({
+      id: 'broken-progress',
+      name: 'Broken',
+      description: '',
+      inputs: [],
+      params: z.object({ size: param.number('Size', 0.5, 0, 1) }),
+      setup: () => ({}),
+      update() {},
+      teardown() {},
+      progress() {
+        throw new Error('boom');
+      },
+    });
+    expect(new AnimationInstance(broken, config(), vi.fn()).progress()).toBeNull();
+  });
+});
+
+describe('note trails', () => {
+  it('mixes the low and high colours', () => {
+    expect(mixColour(0x000000, 0xffffff, 0)).toBe(0x000000);
+    expect(mixColour(0x000000, 0xffffff, 1)).toBe(0xffffff);
+    expect(mixColour(0xff0000, 0x0000ff, 0.5)).toBe(0x800080);
+    expect(mixColour(0x102030, 0x405060, -4)).toBe(0x102030);
+    expect(mixColour(0x102030, 0x405060, 9)).toBe(0x405060);
+  });
+
+  it('grows a bar while the key is held and lets it drift off after release', () => {
+    // Held for half a second at half a height per second: a quarter of the box, from the bottom.
+    expect(barSpan(0.5, -1, 0.5, 1000, 'up')).toEqual({ y: 750, h: 250 });
+    expect(barSpan(0.5, -1, 0.5, 1000, 'down')).toEqual({ y: 0, h: 250 });
+    // Held for a long time: it fills the box and stops there.
+    expect(barSpan(60, -1, 0.5, 1000, 'up')).toEqual({ y: 0, h: 1000 });
+    // Released: the tail follows the head.
+    expect(barSpan(1, 0.5, 0.5, 1000, 'up')).toEqual({ y: 500, h: 250 });
+    expect(barSpan(1, 0.5, 0.5, 1000, 'down')).toEqual({ y: 250, h: 250 });
+    // Gone once the tail has crossed the box.
+    expect(barSpan(5, 2, 0.5, 1000, 'up')).toBeNull();
+  });
+
+  it('runs through presses, releases and its final state without a GPU', () => {
+    const def = getAnimation('note-trails');
+    if (!def) throw new Error('missing');
+    const onError = vi.fn();
+    const instance = new AnimationInstance(def, config({ width: 1920, height: 1080 }), onError);
+    const input = new MidiInputState();
+    for (const note of [10, 48, 60, 72, 120]) {
+      const on = noteOn(note);
+      input.apply(on);
+      instance.offer(on, []);
+    }
+    for (let i = 0; i < 20; i++) instance.update(1 / 60, input);
+    input.releaseAll(); // as panic does: no note-off arrives
+    for (let i = 0; i < 400; i++) instance.update(1 / 60, input);
+    instance.showFinal();
+    instance.destroy();
+    expect(onError).not.toHaveBeenCalled();
+  });
+});
+
+describe('glyph burst', () => {
+  it('starts where the key is, or where it is told to', () => {
+    expect(burstOrigin('where the key is', 36, 1000, 500, 0.5)).toEqual({ x: 0, y: 500 });
+    expect(burstOrigin('where the key is', 84, 1000, 500, 0.5)).toEqual({ x: 1000, y: 500 });
+    expect(burstOrigin('where the key is', 200, 1000, 500, 0.5).x).toBe(1000);
+    expect(burstOrigin('centre', 60, 1000, 500, 0.5)).toEqual({ x: 500, y: 250 });
+    expect(burstOrigin('bottom centre', null, 1000, 500, 0.5)).toEqual({ x: 500, y: 500 });
+    for (const roll of [0, 0.3, 0.999]) {
+      const at = burstOrigin('anywhere', null, 1000, 500, roll);
+      expect(at.x).toBeGreaterThanOrEqual(100);
+      expect(at.x).toBeLessThanOrEqual(900);
+      expect(at.y).toBeGreaterThanOrEqual(150);
+      expect(at.y).toBeLessThanOrEqual(400);
+      // A mapped trigger has no key, so it lands somewhere along the bottom.
+      expect(burstOrigin('where the key is', null, 1000, 500, roll).y).toBe(500);
+    }
+  });
+
+  it('sets up, runs and shows its final state without a GPU', () => {
+    const def = getAnimation('glyph-burst');
+    if (!def) throw new Error('missing');
+    const onError = vi.fn();
+    const instance = new AnimationInstance(def, config({ width: 1920, height: 1080 }), onError);
+    const input = new MidiInputState();
+    instance.offer(noteOn(60), []);
+    instance.trigger(1);
+    for (let i = 0; i < 10; i++) instance.update(1 / 60, input);
+    instance.showFinal();
+    instance.destroy();
+    expect(onError).not.toHaveBeenCalled();
+    expect(def.listensToSound(def.parseParams({}))).toBe(false);
+    expect(def.listensToSound(def.parseParams({ soundBeats: true }))).toBe(true);
   });
 });

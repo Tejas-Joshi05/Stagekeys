@@ -1663,3 +1663,89 @@ button.tool.toggle.on {
 .presenter-stats.warn {
   color: var(--rose);
 }
+
+/* ── Presenting aids ─────────────────────────────────────────────────────── */
+.talk-length {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--cream-soft);
+}
+.talk-length input {
+  width: 46px;
+  text-align: right;
+  font-family: var(--mono);
+}
+.presenter-steps {
+  font-family: var(--mono);
+  font-size: 13px;
+  padding: 3px 9px;
+  border: 1px solid var(--rose-deep);
+  border-radius: 999px;
+  color: var(--rose);
+}
+.presenter-steps.done {
+  border-color: var(--leaf-deep);
+  color: var(--leaf);
+}
+.presenter-countdown {
+  font-family: var(--mono);
+  font-size: 15px;
+  color: var(--cream-soft);
+}
+.presenter-countdown.soon {
+  color: var(--rose);
+}
+.presenter-countdown.over {
+  color: #15161a;
+  background: var(--rose);
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-weight: 600;
+}
+.notes-label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.notes-size {
+  display: inline-flex;
+  gap: 2px;
+}
+.notes-size button {
+  font-family: var(--mono);
+  font-size: 11px;
+  padding: 1px 6px;
+}
+.cheat-sheet {
+  flex: none;
+  max-height: 38%;
+  overflow-y: auto;
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid var(--rule-strong);
+}
+.cheat-sheet ul {
+  list-style: none;
+  margin: 4px 0 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 3px 14px;
+  font-size: 13px;
+}
+.cheat-sheet li {
+  display: contents;
+  color: var(--cream-soft);
+}
+.cheat-sheet li.here {
+  color: inherit;
+}
+.cheat-input {
+  font-family: var(--mono);
+  font-size: 12px;
+}
+.cheat-sheet li.here .cheat-input {
+  color: var(--leaf);
+}

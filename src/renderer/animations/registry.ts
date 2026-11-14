@@ -1,7 +1,9 @@
 import { asciiGarden } from './builtin/asciiGarden';
 import { asciiVignette } from './builtin/asciiVignette';
 import { bloom } from './builtin/bloom';
+import { glyphBurst } from './builtin/glyphBurst';
 import { midiReadout } from './builtin/midiReadout';
+import { noteTrails } from './builtin/noteTrails';
 import { pressedBloom } from './builtin/pressedBloom';
 import { pulse } from './builtin/pulse';
 import { ripple } from './builtin/ripple';
@@ -24,6 +26,8 @@ const ALL: readonly RegisteredAnimation[] = [
   textReveal,
   stepSequence,
   midiReadout,
+  noteTrails,
+  glyphBurst,
 ];
 
 const byId = new Map<string, RegisteredAnimation>();

@@ -1,6 +1,6 @@
 # Stagekeys architecture
 
-Status: **approved and implemented** (2026-11-13, updated 2026-11-14 for 0.3.0). Keep this file up to date when the design moves.
+Status: **approved and implemented** (2026-11-13, updated 2026-11-14 for 0.4.0). Keep this file up to date when the design moves.
 
 Stagekeys is a slide editor and live presenter driven by a MIDI keyboard. It is used live on stage, so every design choice below prefers reliability over features.
 
@@ -114,7 +114,7 @@ Every deck lives in a bundle from the moment it is created. A new deck starts as
 
 ```ts
 Deck     { schemaVersion, meta, slides[], mappings[], zones[], assets }
-Meta     { title, created, updated, canvas: { width: 1920, height: 1080 } }
+Meta     { title, created, updated, canvas: { width: 1920, height: 1080 }, targetMinutes }
 Slide    { id, name, background, elements[], notes, transition, mappings[] }
 Element  = Text | Shape(rect | ellipse | line) | Image | Animation
            common: { id, name, x, y, width, height, rotation, opacity, locked, hidden }
@@ -194,11 +194,17 @@ The riso animations (ASCII garden, Pressed flowers) use artwork bundled inline (
 
 The ASCII vignette uses the same glyph particles for a frame around the slide. It is the model for reacting to two sources differently: sound (`inputs.audio`) moves the whole shape, while keys leave local marks in their own ink. It only writes the cells whose glyph changed.
 
+Animations that are stepped through with key presses (Text reveal, Step sequence) also define `progress(state)`. The stage adds it up for the current slide and sends it in its 10 Hz status message, so the presenter view can show how many presses are left. `listensToSound(params)` lets the pre-show check know that an animation moves to sound by itself.
+
 The animation host owns each instance's root container and destroys it with all children on slide change, whether or not `teardown` behaved. `setup`, `update` and `teardown` are each wrapped: an error is logged, that instance is switched off, and the show carries on.
 
 ## Settings
 
 App settings (piano, keys picture, controller profile, sound input) live in `settings.json` in the app data folder, owned by main, written atomically, and broadcast to both windows on every change. They are about the machine and the controller, not the talk, so they are not in decks. See `docs/decisions/0004-app-settings-and-controller-profile.md`.
+
+## Presenter view
+
+Besides the slides, notes, timer and MIDI state, the presenter view shows a countdown against `meta.targetMinutes` (`presenter/preflight.ts`, `talkClock`), the reveal counter, and "On this slide": what the controller does on the slide being shown, built from the deck by `presenter/cheatSheet.ts` (mappings are put into words by `mapping/describe.ts`, which the mapping panel shares). When a show starts, `preflight` looks at the deck, MIDI and sound input and reports problems as notices. All of it is derived from the deck and the stage's status message; nothing here can hold up or stop the show.
 
 ## Show-safe mode
 

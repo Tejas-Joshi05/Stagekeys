@@ -426,6 +426,8 @@ export const asciiVignette = defineAnimation({
         }
       : {},
 
+  listensToSound: (p) => p.audioReacts !== 'do nothing' && p.audioAmount > 0,
+
   setup(ctx) {
     const p = ctx.params;
     const W = ctx.width;

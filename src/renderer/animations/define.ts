@@ -33,6 +33,11 @@ export interface Trigger {
   note: number | null;
 }
 
+export interface AnimationProgress {
+  done: number;
+  total: number;
+}
+
 export interface FrameInfo {
   /** Seconds since this instance was set up. */
   time: number;
@@ -92,6 +97,12 @@ export interface AnimationDefinition<S extends z.ZodObject, State> {
   /** Draw the finished state, for thumbnails and the PNG/PDF backup export. */
   showFinal?(state: State, params: z.infer<S>): void;
   /**
+   * For animations that are stepped through with key presses: how far along
+   * they are. The presenter view shows it, so the speaker knows how many
+   * presses are left before moving on. Must be cheap: it is polled.
+   */
+  progress?(state: State): AnimationProgress;
+  /**
    * Parameters read in `setup` (layout, counts, text). Changing one rebuilds
    * the instance; every other parameter is picked up live, so tweaking a colour
    * in the editor does not restart the animation. Leave out to rebuild on any change.
@@ -99,6 +110,11 @@ export interface AnimationDefinition<S extends z.ZodObject, State> {
   rebuildOn?: readonly (keyof z.infer<S> & string)[];
   /** Starting values that suit the slide it is placed on (light inks on dark slides, and so on). */
   paramsFor?(slide: { dark: boolean }): Partial<z.infer<S>>;
+  /**
+   * True if, with these settings, the animation moves to the sound input by
+   * itself (not through a binding). Used to warn before a show that sound input is off.
+   */
+  listensToSound?(params: z.infer<S>): boolean;
 }
 
 export interface DefaultBinding {
@@ -126,10 +142,12 @@ export interface RegisteredAnimation {
   update(state: unknown, frame: FrameInfo, inputs: AnimationInputs<ParamValues>): void;
   teardown(state: unknown): void;
   showFinal: ((state: unknown, params: ParamValues) => void) | null;
+  progress: ((state: unknown) => AnimationProgress) | null;
   /** Parameters that need a rebuild when changed; null means all of them. */
   rebuildOn: readonly string[] | null;
   /** Parameters to store on a newly placed instance; empty means "all defaults". */
   paramsFor(slide: { dark: boolean }): ParamValues;
+  listensToSound(params: ParamValues): boolean;
 }
 
 export function defineAnimation<S extends z.ZodObject, State>(
@@ -138,6 +156,7 @@ export function defineAnimation<S extends z.ZodObject, State>(
   type P = z.infer<S>;
   const defaults = def.params.parse({}) as ParamValues;
   const showFinal = def.showFinal;
+  const progress = def.progress;
   return {
     id: def.id,
     name: def.name,
@@ -164,8 +183,10 @@ export function defineAnimation<S extends z.ZodObject, State>(
       def.update(state as State, frame, inputs as AnimationInputs<P>),
     teardown: (state) => def.teardown(state as State),
     showFinal: showFinal ? (state, params) => showFinal(state as State, params as P) : null,
+    progress: progress ? (state) => progress(state as State) : null,
     rebuildOn: def.rebuildOn ?? null,
     paramsFor: (slide) => ({ ...(def.paramsFor?.(slide) ?? {}) }) as ParamValues,
+    listensToSound: (params) => def.listensToSound?.(params as P) ?? false,
   };
 }
 
