@@ -144,16 +144,18 @@ export function SelectField<T extends string>({
   options,
   onChange,
   wide,
+  testId,
 }: {
   label: string;
   value: T;
   options: readonly { value: T; label: string }[];
   onChange: (value: T) => void;
   wide?: boolean;
+  testId?: string;
 }) {
   return (
     <Field label={label} wide={wide}>
-      <select value={value} onChange={(e) => onChange(e.target.value as T)}>
+      <select value={value} data-testid={testId} onChange={(e) => onChange(e.target.value as T)}>
         {options.map((o) => (
           <option key={o.value} value={o.value}>
             {o.label}

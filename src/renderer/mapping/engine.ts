@@ -1,5 +1,6 @@
 import type { Action, ActionSource } from '../actions';
 import type { MidiBus } from '../midi';
+import { ChordTracker } from './chords';
 import type { ControlPicker } from './controls';
 import type { LearnSession } from './learn';
 import { actionFor, resolveMappings } from './match';
@@ -23,14 +24,17 @@ export interface MappingEngineOptions {
  * so animations do not also react to navigation keys.
  */
 export function startMappingEngine(options: MappingEngineOptions): () => void {
+  const chords = new ChordTracker();
   return options.bus.subscribe((message, previousCc) => {
+    // Always, even while idle or learning, so the keys held are never out of date.
+    chords.track(message);
     if (options.isActive && !options.isActive()) return;
     if (options.learn?.offer(message) || options.picker?.offer(message)) {
       message.consumed = true;
       return;
     }
     const { slide, global } = options.getMappings();
-    const matches = resolveMappings(message, previousCc, slide, global);
+    const matches = resolveMappings(message, previousCc, slide, global, chords);
     if (matches.length === 0) return;
     message.consumed = true;
     for (const match of matches) options.dispatch(actionFor(match), 'midi');

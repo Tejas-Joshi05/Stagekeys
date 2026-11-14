@@ -1,5 +1,13 @@
 import { describe, expect, it, vi } from 'vitest';
 import { MidiBus, type MidiMessage, type ParsedMidi } from '../midi';
+import {
+  ChordTracker,
+  chordTrigger,
+  describeChord,
+  formatChordNotes,
+  parseChordNotes,
+} from './chords';
+import { describeInput } from './controls';
 import { applyCurve, scaleValue } from './curves';
 import { startMappingEngine } from './engine';
 import { parseMappingFile, serialiseMappings } from './file';
@@ -296,5 +304,234 @@ describe('mapping files', () => {
   it('rejects bad JSON and files of the wrong kind', () => {
     expect(parseMappingFile('{nope')).toMatchObject({ ok: false });
     expect(parseMappingFile('{"format":"something-else"}')).toMatchObject({ ok: false });
+  });
+});
+
+describe('chords', () => {
+  const at = (parsed: ParsedMidi, time: number): MidiMessage => ({ ...msg(parsed), time });
+  const down = (note: number, time = 0, channel = 1, velocity = 100) =>
+    at({ type: 'noteOn', channel, note, velocity }, time);
+  const up = (note: number, time = 0, channel = 1) =>
+    at({ type: 'noteOff', channel, note, velocity: 0 }, time);
+  const chord = (notes: number[], extra: Partial<ReturnType<typeof chordTrigger>> = {}) =>
+    mapping({ trigger: { ...chordTrigger(notes), ...extra } });
+  /** Plays messages through a tracker and says whether the last one fired the mapping. */
+  const play = (m: Mapping, messages: MidiMessage[], tracker = new ChordTracker()) => {
+    let result: number | null = null;
+    for (const message of messages) {
+      tracker.track(message);
+      result = matchMapping(m, message, 0, tracker);
+    }
+    return result;
+  };
+
+  it("fires on the key that completes the chord, with that key's velocity", () => {
+    const m = chord([60, 64, 67]);
+    const tracker = new ChordTracker();
+    expect(play(m, [down(60, 0)], tracker)).toBeNull();
+    expect(play(m, [down(64, 10)], tracker)).toBeNull();
+    expect(play(m, [down(67, 20, 1, 127)], tracker)).toBe(1);
+  });
+
+  it('fires whichever key lands last', () => {
+    expect(play(chord([60, 64, 67]), [down(67), down(60), down(64)])).not.toBeNull();
+  });
+
+  it('never fires without a tracker, on a key outside the chord, or on note off', () => {
+    const m = chord([60, 64]);
+    expect(matchMapping(m, down(64), 0)).toBeNull();
+    const tracker = new ChordTracker();
+    expect(play(m, [down(60), down(64), up(64)], tracker)).toBeNull();
+    expect(play(chord([60, 64], { exact: false }), [down(60), down(64), down(65)])).toBeNull();
+  });
+
+  it('needs the keys to land together when a time limit is set', () => {
+    expect(play(chord([60, 64], { within: 300 }), [down(60, 0), down(64, 301)])).toBeNull();
+    expect(play(chord([60, 64], { within: 300 }), [down(60, 0), down(64, 300)])).not.toBeNull();
+    expect(play(chord([60, 64], { within: 0 }), [down(60, 0), down(64, 60_000)])).not.toBeNull();
+  });
+
+  it('fires again only after a key is let go and pressed again', () => {
+    const m = chord([60, 64]);
+    const tracker = new ChordTracker();
+    expect(play(m, [down(60), down(64)], tracker)).not.toBeNull();
+    expect(play(m, [up(64, 50)], tracker)).toBeNull();
+    expect(play(m, [down(64, 100)], tracker)).not.toBeNull();
+    // A key that was let go no longer counts.
+    expect(play(m, [up(60, 150), up(64, 150), down(64, 200)], tracker)).toBeNull();
+  });
+
+  it('"only these keys" refuses extra held keys, unless one has been stuck for a long time', () => {
+    const strict = chord([60, 64], { exact: true });
+    const loose = chord([60, 64], { exact: false });
+    expect(play(strict, [down(55), down(60), down(64)])).toBeNull();
+    expect(play(loose, [down(55), down(60), down(64)])).not.toBeNull();
+    expect(play(strict, [down(55, 0), down(60, 20_000), down(64, 20_010)])).not.toBeNull();
+  });
+
+  it('keeps the pads and the keys apart by channel', () => {
+    const m = chord([36, 37]);
+    expect(play(m, [down(36, 0, 10), down(37, 0, 1)])).toBeNull();
+    expect(play(m, [down(36, 0, 10), down(37, 0, 10)])).not.toBeNull();
+    const padsOnly = mapping({ trigger: chordTrigger([36, 37]), filters: { channel: 10 } });
+    expect(play(padsOnly, [down(36, 0, 1), down(37, 0, 1)])).toBeNull();
+    expect(play(padsOnly, [down(36, 0, 10), down(37, 0, 10)])).not.toBeNull();
+  });
+
+  it('in any octave, matches the note names wherever they are played', () => {
+    const m = chord([60, 64, 67], { anyOctave: true });
+    expect(play(m, [down(48), down(76), down(55)])).not.toBeNull();
+    expect(play(m, [down(48), down(76)])).toBeNull();
+    expect(play(m, [down(48), down(76), down(55), down(50)])).toBeNull();
+    // An extra key spoils an exact chord, but not a loose one.
+    expect(play(m, [down(50), down(48), down(76), down(55)])).toBeNull();
+    expect(
+      play(chord([60, 64, 67], { anyOctave: true, exact: false }), [
+        down(50),
+        down(48),
+        down(76),
+        down(55),
+      ]),
+    ).not.toBeNull();
+    expect(play(m, [down(48, 0), down(76, 0), down(55, 500)])).toBeNull();
+  });
+
+  it('forgets held keys on reset and ignores nonsense messages', () => {
+    const tracker = new ChordTracker();
+    const m = chord([60, 64]);
+    play(m, [down(60)], tracker);
+    tracker.reset();
+    expect(play(m, [down(64)], tracker)).toBeNull();
+    expect(() => tracker.track(down(60, 0, 99))).not.toThrow();
+    expect(tracker.completes(chordTrigger([60, 64]), down(60, 0, 99))).toBe(false);
+  });
+
+  it('a completed chord wins over the single-key mapping of its last key', () => {
+    const single = mapping({
+      id: 'single',
+      trigger: { kind: 'noteOn' },
+      filters: { noteFrom: 64, noteTo: 64 },
+    });
+    const pair = { ...chord([60, 64]), id: 'pair' };
+    const triple = { ...chord([60, 64, 67], { exact: false }), id: 'triple' };
+    const loosePair = { ...chord([60, 64], { exact: false }), id: 'loose' };
+    const tracker = new ChordTracker();
+    const first = down(60);
+    tracker.track(first);
+    expect(resolveMappings(first, 0, [], [single, pair], tracker)).toEqual([]);
+    const second = down(64, 5);
+    tracker.track(second);
+    expect(
+      resolveMappings(second, 0, [], [single, pair], tracker).map((x) => x.mapping.id),
+    ).toEqual(['pair']);
+    // The bigger chord wins when two complete on the same key.
+    const third = down(67, 10);
+    tracker.track(third);
+    const loosePairOn67 = { ...chord([60, 67], { exact: false }), id: 'loose67' };
+    expect(
+      resolveMappings(third, 0, [], [loosePair, loosePairOn67, triple], tracker).map(
+        (x) => x.mapping.id,
+      ),
+    ).toEqual(['triple']);
+  });
+
+  it('feeds how hard the chord was played into an animation trigger', () => {
+    const m = mapping({
+      trigger: chordTrigger([60, 64]),
+      action: { type: 'anim.trigger', elementId: 'e', value: 1 },
+    });
+    expect(actionFor({ mapping: m, value: 0.5, scope: 'global' })).toMatchObject({ value: 0.5 });
+  });
+
+  it('through the engine: one action for the chord, and the last key is used up', () => {
+    const bus = new MidiBus();
+    const dispatch = vi.fn(() => true);
+    const global = [chord([60, 64, 67])];
+    startMappingEngine({ bus, dispatch, getMappings: () => ({ slide: [], global }) });
+    const a = bus.emit({ type: 'noteOn', channel: 1, note: 60, velocity: 90 }, 'Keys', 0, 0);
+    bus.emit({ type: 'noteOn', channel: 1, note: 64, velocity: 90 }, 'Keys', 8, 0);
+    expect(dispatch).not.toHaveBeenCalled();
+    const c = bus.emit({ type: 'noteOn', channel: 1, note: 67, velocity: 90 }, 'Keys', 15, 0);
+    expect(dispatch).toHaveBeenCalledTimes(1);
+    expect(a.consumed).toBe(false);
+    expect(c.consumed).toBe(true);
+  });
+
+  it('keeps track of held keys while the engine is idle', () => {
+    const bus = new MidiBus();
+    const dispatch = vi.fn(() => true);
+    let active = false;
+    const global = [chord([60, 64], { within: 0 })];
+    startMappingEngine({
+      bus,
+      dispatch,
+      getMappings: () => ({ slide: [], global }),
+      isActive: () => active,
+    });
+    bus.emit({ type: 'noteOn', channel: 1, note: 60, velocity: 90 }, 'Keys', 0, 0);
+    active = true;
+    bus.emit({ type: 'noteOn', channel: 1, note: 64, velocity: 90 }, 'Keys', 5, 0);
+    expect(dispatch).toHaveBeenCalledTimes(1);
+  });
+
+  it('reads and writes keys typed by hand', () => {
+    expect(parseChordNotes('C4 E4 G4')).toEqual([60, 64, 67]);
+    expect(parseChordNotes('g4, c4 + eb4')).toEqual([60, 63, 67]);
+    expect(parseChordNotes('60 64 64 67')).toEqual([60, 64, 67]);
+    expect(parseChordNotes('F#3 Bb3 c')).toEqual([54, 58, 60]);
+    expect(parseChordNotes('C-1 G9')).toEqual([0, 127]);
+    expect(parseChordNotes('H4')).toBeNull();
+    expect(parseChordNotes('C4 200')).toBeNull();
+    expect(parseChordNotes('A9')).toBeNull();
+    expect(parseChordNotes('')).toEqual([]);
+    expect(parseChordNotes(formatChordNotes([60, 61, 67]))).toEqual([60, 61, 67]);
+  });
+
+  it('describes a chord in words', () => {
+    expect(describeChord(chordTrigger([67, 60, 64, 60]))).toBe('C4 + E4 + G4');
+    expect(describeChord({ ...chordTrigger([60, 64, 72]), anyOctave: true })).toBe(
+      'C + E in any octave',
+    );
+    const profile = { padChannel: 10, knobCCs: [], keysLow: 48, padNotes: [] } as never;
+    expect(describeInput(chord([60, 64]), profile)).toBe('Chord C4 + E4');
+  });
+
+  it('learns a chord from keys held together, and not from a single key', () => {
+    const learn = new LearnSession();
+    const done = vi.fn();
+    learn.startChord('m', { type: 'nav.next' }, done);
+    // One key on its own: keep waiting.
+    learn.offer(down(60));
+    learn.offer(up(60));
+    expect(done).not.toHaveBeenCalled();
+    expect(learn.activeId).toBe('m');
+    // Rolled in, let go in any order; a knob moved meanwhile is ignored.
+    learn.offer(down(67));
+    learn.offer(down(60));
+    expect(learn.chordNotes).toEqual([60, 67]);
+    learn.offer(cc(21, 90));
+    learn.offer(up(67));
+    learn.offer(down(64));
+    learn.offer(up(60));
+    expect(done).not.toHaveBeenCalled();
+    learn.offer(up(64));
+    expect(done).toHaveBeenCalledWith({
+      trigger: { kind: 'chord', notes: [60, 64, 67], anyOctave: false, exact: true, within: 300 },
+      filters: {},
+    });
+    expect(learn.activeId).toBeNull();
+    expect(learn.offer(down(60))).toBe(false);
+  });
+
+  it('a plain learn started after a chord learn is plain again', () => {
+    const learn = new LearnSession();
+    const done = vi.fn();
+    learn.startChord('a', { type: 'nav.next' }, vi.fn());
+    learn.start('b', { type: 'nav.next' }, done);
+    learn.offer(down(62));
+    expect(done).toHaveBeenCalledWith({
+      trigger: { kind: 'noteOn' },
+      filters: { noteFrom: 62, noteTo: 62 },
+    });
   });
 });

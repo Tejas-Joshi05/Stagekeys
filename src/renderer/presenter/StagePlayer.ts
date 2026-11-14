@@ -3,7 +3,14 @@ import type { Deck } from '../deck';
 import type { MidiBus, MidiInputState } from '../midi';
 import { createRenderer, fitRenderer, SlideScene, type AssetTextures } from '../render';
 import { FrameMeter } from '../shared/fps';
-import { applyFrame, transitionFrame, type TransitionKind } from './transitions';
+import { GlyphTransition } from './GlyphTransition';
+import {
+  applyFrame,
+  isGlyphTransition,
+  RESTING,
+  transitionFrame,
+  type TransitionKind,
+} from './transitions';
 
 export interface StagePlayerOptions {
   canvas: HTMLCanvasElement;
@@ -25,7 +32,8 @@ interface ActiveTransition {
   duration: number;
   elapsed: number;
   direction: 1 | -1;
-  outgoing: SlideScene;
+  /** The slide on its way out. Null for the ASCII transitions, which draw a photograph of it instead. */
+  outgoing: SlideScene | null;
 }
 
 const BLACK_FADE_S = 0.18;
@@ -41,6 +49,7 @@ export class StagePlayer {
   private readonly stage = new Container();
   private readonly slides = new Container();
   private readonly blackout = new Graphics();
+  private readonly glyphs: GlyphTransition;
   private scene: SlideScene | null = null;
   private transition: ActiveTransition | null = null;
   private black = false;
@@ -57,7 +66,8 @@ export class StagePlayer {
     this.lastSeq = options.bus.head;
     this.blackout.rect(0, 0, this.size.width, this.size.height).fill({ color: 0x000000 });
     this.blackout.alpha = 0;
-    this.stage.addChild(this.slides, this.blackout);
+    this.glyphs = new GlyphTransition(this.size.width, this.size.height);
+    this.stage.addChild(this.slides, this.glyphs.root, this.blackout);
   }
 
   async init(): Promise<void> {
@@ -83,6 +93,7 @@ export class StagePlayer {
     const target = RenderTexture.create({ width: this.size.width, height: this.size.height });
     const start = performance.now();
     let warmed = 0;
+    const cellsWarmed = new Set<string>();
     try {
       for (const slide of deck.slides) {
         if (this.destroyed || performance.now() - start > budgetMs) break;
@@ -92,6 +103,25 @@ export class StagePlayer {
           scene.update(1 / 60, this.options.input);
           renderer.render({ container: scene.root, target });
           warmed++;
+          // The first ASCII transition of each grid builds its cells here, not mid-show.
+          const { kind, cell, glyphs } = slide.transition;
+          const grid = `${cell}|${glyphs}`;
+          if (isGlyphTransition(kind) && !cellsWarmed.has(grid)) {
+            cellsWarmed.add(grid);
+            const ready = this.glyphs.start(renderer, scene.root, {
+              kind,
+              direction: 1,
+              cell,
+              glyphs,
+              outgoingBackground: slide.background.color,
+              incomingBackground: slide.background.color,
+            });
+            if (ready) {
+              this.glyphs.update(0.5);
+              renderer.render({ container: this.stage, target });
+              this.glyphs.stop();
+            }
+          }
         } finally {
           scene.destroy();
         }
@@ -140,16 +170,37 @@ export class StagePlayer {
     this.slides.addChild(incoming.root);
     this.scene = incoming;
     const direction: 1 | -1 = target >= this.index ? 1 : -1;
+    const previous = this.index;
     this.index = target;
 
     const kind = animate ? slide.transition.kind : 'cut';
     const duration = slide.transition.duration / 1000;
-    if (outgoing && kind !== 'cut' && duration > 0) {
+    const moving = outgoing !== null && kind !== 'cut' && duration > 0;
+    if (moving && isGlyphTransition(kind)) {
+      // The old slide is photographed into character cells and let go at once.
+      this.slides.removeChild(outgoing.root);
+      const started =
+        this.renderer !== null &&
+        this.glyphs.start(this.renderer, outgoing.root, {
+          kind,
+          direction,
+          cell: slide.transition.cell,
+          glyphs: slide.transition.glyphs,
+          outgoingBackground: deck.slides[previous]?.background.color ?? '#000000',
+          incomingBackground: slide.background.color,
+        });
+      outgoing.destroy();
+      applyFrame(incoming.root, RESTING, this.size.width, this.size.height);
+      if (started) {
+        this.transition = { kind, duration, elapsed: 0, direction, outgoing: null };
+        this.applyTransition();
+      }
+    } else if (moving) {
       this.transition = { kind, duration, elapsed: 0, direction, outgoing };
       this.applyTransition();
     } else {
       outgoing?.destroy();
-      applyFrame(incoming.root, { alpha: 1, x: 0, scale: 1 }, this.size.width, this.size.height);
+      applyFrame(incoming.root, RESTING, this.size.width, this.size.height);
     }
     return true;
   }
@@ -157,9 +208,15 @@ export class StagePlayer {
   private applyTransition(): void {
     const t = this.transition;
     if (!t || !this.scene) return;
-    const frame = transitionFrame(t.kind, t.elapsed / t.duration, this.size.width, t.direction);
-    applyFrame(this.scene.root, frame.incoming, this.size.width, this.size.height);
-    applyFrame(t.outgoing.root, frame.outgoing, this.size.width, this.size.height);
+    const { width, height } = this.size;
+    const progress = t.elapsed / t.duration;
+    if (!t.outgoing) {
+      this.glyphs.update(progress);
+      return;
+    }
+    const frame = transitionFrame(t.kind, progress, width, t.direction, height);
+    applyFrame(this.scene.root, frame.incoming, width, height);
+    applyFrame(t.outgoing.root, frame.outgoing, width, height);
   }
 
   /** Jumps any running transition to its end and frees the outgoing slide. */
@@ -167,10 +224,9 @@ export class StagePlayer {
     const t = this.transition;
     if (!t) return;
     this.transition = null;
-    t.outgoing.destroy();
-    if (this.scene) {
-      applyFrame(this.scene.root, { alpha: 1, x: 0, scale: 1 }, this.size.width, this.size.height);
-    }
+    t.outgoing?.destroy();
+    this.glyphs.stop();
+    if (this.scene) applyFrame(this.scene.root, RESTING, this.size.width, this.size.height);
   }
 
   setBlack(black: boolean): void {
@@ -250,6 +306,7 @@ export class StagePlayer {
     this.finishTransition();
     this.scene?.destroy();
     this.scene = null;
+    this.glyphs.destroy();
     this.stage.destroy({ children: true });
     this.renderer?.destroy();
     this.renderer = null;

@@ -11,4 +11,9 @@ export {
 export { PresenterView } from './PresenterView';
 export { RehearsalReport } from './RehearsalReport';
 export { ShowTimeline, type SlideTiming } from './timeline';
-export { transitionFrame, type TransitionKind } from './transitions';
+export {
+  isGlyphTransition,
+  TRANSITION_LABELS,
+  transitionFrame,
+  type TransitionKind,
+} from './transitions';

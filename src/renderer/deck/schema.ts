@@ -2,7 +2,11 @@ import { z } from 'zod';
 import { CurveSchema, MappingSchema, ZoneSchema } from '../mapping';
 
 /**
- * Deck schema, version 3.
+ * Deck schema, version 4.
+ *
+ * Version 4 (Stagekeys 0.5.0): mappings can be triggered by a chord, and
+ * slides have more transitions; a transition gains `cell` and `glyphs` for
+ * the ones drawn in character cells.
  *
  * Version 3 (Stagekeys 0.4.0): `meta.targetMinutes`, the planned length of the
  * talk, for the countdown in the presenter view.
@@ -14,7 +18,7 @@ import { CurveSchema, MappingSchema, ZoneSchema } from '../mapping';
  *   1. bump CURRENT_SCHEMA_VERSION,
  *   2. add a numbered migration in ./migrations with a test and fixture.
  */
-export const CURRENT_SCHEMA_VERSION = 3;
+export const CURRENT_SCHEMA_VERSION = 4;
 
 const finite = z.number().refine(Number.isFinite, 'Must be a finite number');
 const colour = z.string().regex(/^#[0-9a-fA-F]{6}$/, 'Expected a #rrggbb colour');
@@ -104,10 +108,47 @@ export const ElementSchema = z.discriminatedUnion('type', [
   AnimationElementSchema,
 ]);
 
+/** Every way a slide can arrive, in the order the editor offers them. */
+export const TRANSITION_KINDS = [
+  'cut',
+  'fade',
+  'dip',
+  'slide',
+  'slide-up',
+  'cover',
+  'zoom',
+  'ascii-dissolve',
+  'ascii-wipe',
+  'ascii-scan',
+  'ascii-rain',
+  'ascii-iris',
+] as const;
+
+/** Character sets the ASCII transitions can be drawn with. */
+export const TRANSITION_GLYPH_NAMES = [
+  'riso',
+  'code',
+  'dots',
+  'binary',
+  'slashes',
+  'blocks',
+] as const;
+
+export const DEFAULT_TRANSITION = {
+  kind: 'cut',
+  duration: 400,
+  cell: 40,
+  glyphs: 'riso',
+} as const;
+
 export const TransitionSchema = z.object({
-  kind: z.enum(['cut', 'fade', 'slide', 'zoom']).default('cut'),
+  kind: z.enum(TRANSITION_KINDS).default('cut'),
   /** Milliseconds. */
   duration: finite.min(0).max(5000).default(400),
+  /** ASCII transitions: the size of one character cell, in slide pixels. */
+  cell: finite.min(12).max(200).default(40),
+  /** ASCII transitions: the characters the cells are drawn with. */
+  glyphs: z.enum(TRANSITION_GLYPH_NAMES).default('riso'),
 });
 
 export const SlideSchema = z.object({
@@ -117,7 +158,7 @@ export const SlideSchema = z.object({
   elements: z.array(ElementSchema),
   notes: z.string().default(''),
   /** How this slide arrives. */
-  transition: TransitionSchema.default({ kind: 'cut', duration: 400 }),
+  transition: TransitionSchema.default({ ...DEFAULT_TRANSITION }),
   /** Per-slide MIDI mappings. These win over the deck's global mappings. */
   mappings: z.array(MappingSchema).default([]),
 });

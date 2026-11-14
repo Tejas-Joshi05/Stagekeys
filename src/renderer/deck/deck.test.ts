@@ -11,6 +11,7 @@ import {
   moveSlide,
   reorder,
   setSlideNotes,
+  setEveryTransition,
   setTargetMinutes,
   updateElements,
 } from './commands';
@@ -20,6 +21,7 @@ import { parseDeck, serialiseDeck } from './load';
 import { DeckVersionError, migrateDeck, migrations, type Migration } from './migrations';
 import v1Fixture from './migrations/fixtures/v1-deck.json';
 import v2Fixture from './migrations/fixtures/v2-deck.json';
+import v3Fixture from './migrations/fixtures/v3-deck.json';
 import { CURRENT_SCHEMA_VERSION, DeckSchema, type Deck } from './schema';
 import { openSession, redo, sealHistory, undo, useDeckStore } from './store';
 
@@ -142,7 +144,7 @@ describe('migration 002: version 2 decks gain a talk length of "none"', () => {
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     expect(result.migratedFrom).toBe(2);
-    expect(result.deck.schemaVersion).toBe(3);
+    expect(result.deck.schemaVersion).toBe(CURRENT_SCHEMA_VERSION);
     expect(result.deck.meta.targetMinutes).toBe(0);
     expect(result.deck.meta.title).toBe('Version 2 fixture');
     expect(result.deck.mappings).toHaveLength(2);
@@ -529,5 +531,81 @@ describe('Autosave', () => {
     state.revision = 5;
     expect(await auto.tick()).toBeNull();
     expect(writes).toHaveLength(0);
+  });
+});
+
+describe('migration 003: version 3 decks gain the ASCII transition settings', () => {
+  it('opens the version 3 fixture with its transitions and mappings intact', () => {
+    const result = parseDeck(JSON.stringify(v3Fixture));
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.migratedFrom).toBe(3);
+    expect(result.deck.schemaVersion).toBe(4);
+    expect(result.deck.meta.title).toBe('Version 3 fixture');
+    expect(result.deck.meta.targetMinutes).toBe(25);
+    expect(result.deck.mappings).toHaveLength(2);
+    const before = (v3Fixture.slides as { transition: { kind: string; duration: number } }[]).map(
+      (s) => s.transition,
+    );
+    result.deck.slides.forEach((slide, i) => {
+      expect(slide.transition).toEqual({ ...before[i], cell: 40, glyphs: 'riso' });
+    });
+  });
+
+  it('keeps settings that are already there and leaves odd slides alone', () => {
+    const table = { 3: migrations[3] as Migration };
+    const out = migrateDeck(
+      {
+        schemaVersion: 3,
+        slides: [
+          { transition: { kind: 'fade', duration: 300, cell: 64, glyphs: 'binary' } },
+          { transition: { kind: 'zoom', duration: 200 } },
+          { name: 'no transition' },
+          7,
+        ],
+      },
+      4,
+      table,
+    ).deck;
+    expect(out.slides).toEqual([
+      { transition: { kind: 'fade', duration: 300, cell: 64, glyphs: 'binary' } },
+      { transition: { kind: 'zoom', duration: 200, cell: 40, glyphs: 'riso' } },
+      { name: 'no transition' },
+      7,
+    ]);
+    expect(migrateDeck({ schemaVersion: 3 }, 4, table).deck).toEqual({ schemaVersion: 4 });
+  });
+
+  it('accepts a chord mapping and every transition kind', () => {
+    const deck = createEmptyDeck('Chords');
+    const raw = JSON.parse(JSON.stringify(deck)) as Record<string, unknown>;
+    raw.mappings = [
+      {
+        id: 'm1',
+        trigger: { kind: 'chord', notes: [60, 64, 67] },
+        action: { type: 'nav.next' },
+      },
+    ];
+    const parsed = DeckSchema.parse(raw);
+    expect(parsed.mappings[0]?.trigger).toEqual({
+      kind: 'chord',
+      notes: [60, 64, 67],
+      anyOctave: false,
+      exact: true,
+      within: 300,
+    });
+    raw.mappings = [
+      { id: 'm1', trigger: { kind: 'chord', notes: [60] }, action: { type: 'nav.next' } },
+    ];
+    expect(DeckSchema.safeParse(raw).success).toBe(false);
+  });
+
+  it('sets one transition on every slide as a single undoable edit', () => {
+    openSession(createEmptyDeck(), '/tmp/t.stagekeys', false);
+    addSlide();
+    setEveryTransition({ kind: 'ascii-rain', duration: 700, cell: 32, glyphs: 'code' });
+    expect(deckNow().slides.map((s) => s.transition.kind)).toEqual(['ascii-rain', 'ascii-rain']);
+    undo();
+    expect(deckNow().slides.map((s) => s.transition.kind)).toEqual(['cut', 'cut']);
   });
 });

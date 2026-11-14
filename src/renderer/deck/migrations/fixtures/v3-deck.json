@@ -1,0 +1,129 @@
+{
+  "schemaVersion": 3,
+  "meta": {
+    "title": "Version 3 fixture",
+    "created": "2026-11-13T09:00:00.000Z",
+    "updated": "2026-11-13T09:30:00.000Z",
+    "canvas": {
+      "width": 1920,
+      "height": 1080
+    },
+    "targetMinutes": 25
+  },
+  "slides": [
+    {
+      "id": "slide_one",
+      "name": "Garden",
+      "background": {
+        "color": "#1c1a17"
+      },
+      "elements": [
+        {
+          "id": "el_text",
+          "name": "Title",
+          "x": 120,
+          "y": 100,
+          "width": 900,
+          "height": 160,
+          "type": "text",
+          "text": "Art over optimisation",
+          "fontFamily": "Familjen Grotesk Variable",
+          "fontSize": 96,
+          "fontWeight": 700,
+          "color": "#efe6d8",
+          "align": "left",
+          "lineHeight": 1.1
+        },
+        {
+          "id": "el_garden",
+          "name": "ASCII garden",
+          "x": 460,
+          "y": 90,
+          "width": 1000,
+          "height": 900,
+          "type": "animation",
+          "animationId": "ascii-garden",
+          "params": {
+            "plant": "maple",
+            "print": "glow on dark"
+          },
+          "bindings": [
+            {
+              "param": "wind",
+              "source": "cc",
+              "controller": 1,
+              "curve": "linear",
+              "min": 0,
+              "max": 1
+            },
+            {
+              "param": "fit",
+              "source": "velocity",
+              "min": 0.5,
+              "max": 1
+            },
+            {
+              "param": "sway",
+              "source": "audioLevel",
+              "controller": 1,
+              "curve": "linear",
+              "min": 0,
+              "max": 3
+            }
+          ],
+          "listen": {
+            "mode": "range",
+            "from": 48,
+            "to": 72
+          }
+        }
+      ],
+      "notes": "Play something.",
+      "transition": {
+        "kind": "fade",
+        "duration": 400
+      },
+      "mappings": []
+    }
+  ],
+  "mappings": [
+    {
+      "id": "map_next",
+      "name": "",
+      "enabled": true,
+      "trigger": {
+        "kind": "noteOn"
+      },
+      "filters": {
+        "channel": 10,
+        "noteFrom": 36,
+        "noteTo": 36
+      },
+      "action": {
+        "type": "nav.next"
+      },
+      "curve": "linear",
+      "min": 0,
+      "max": 1
+    },
+    {
+      "id": "map_sens",
+      "name": "",
+      "enabled": true,
+      "trigger": {
+        "kind": "ccValue",
+        "controller": 70
+      },
+      "filters": {},
+      "action": {
+        "type": "audio.setSensitivity",
+        "value": 0.5
+      },
+      "curve": "linear",
+      "min": 0,
+      "max": 1
+    }
+  ],
+  "zones": [],
+  "assets": {}
+}

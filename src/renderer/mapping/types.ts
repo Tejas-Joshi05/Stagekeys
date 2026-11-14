@@ -11,6 +11,17 @@ export const TriggerSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('ccValue'), controller: midi7 }),
   z.object({ kind: z.literal('sustainDown') }),
   z.object({ kind: z.literal('sustainUp') }),
+  z.object({
+    kind: z.literal('chord'),
+    /** The keys that make the chord, as MIDI note numbers. */
+    notes: z.array(midi7).min(2).max(10),
+    /** Match the note names in any octave (C + E + G anywhere), not these exact keys. */
+    anyOctave: z.boolean().default(false),
+    /** Only fire when no key outside the chord is held as well. */
+    exact: z.boolean().default(true),
+    /** The keys must go down within this many milliseconds of each other. 0 means no limit. */
+    within: z.number().int().min(0).max(5000).default(300),
+  }),
 ]);
 export type Trigger = z.infer<typeof TriggerSchema>;
 export type TriggerKind = Trigger['kind'];
@@ -71,4 +82,5 @@ export const TRIGGER_LABELS: Record<TriggerKind, string> = {
   ccValue: 'CC value (continuous)',
   sustainDown: 'Sustain pedal down',
   sustainUp: 'Sustain pedal up',
+  chord: 'Chord (several keys together)',
 };

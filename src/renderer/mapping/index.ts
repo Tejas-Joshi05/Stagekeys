@@ -1,5 +1,13 @@
 export * from './types';
 export { applyCurve, scaleValue } from './curves';
+export {
+  ChordTracker,
+  chordTrigger,
+  describeChord,
+  formatChordNotes,
+  parseChordNotes,
+  type ChordTrigger,
+} from './chords';
 export { describeAction, type ActionNames } from './describe';
 export { actionFor, carriesValue, matchMapping, resolveMappings, type MappingMatch } from './match';
 export { LearnSession, learnFromMessage, learnSession, type Learned } from './learn';

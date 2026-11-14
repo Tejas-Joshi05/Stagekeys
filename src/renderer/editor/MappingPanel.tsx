@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 import { ACTION_LABELS, MAPPABLE_ACTIONS, type Action } from '../actions';
 import { bindableParams, getAnimation } from '../animations';
 import {
@@ -15,15 +15,20 @@ import {
 } from '../deck';
 import {
   carriesValue,
+  chordTrigger,
   controlOfMapping,
   controlPicker,
   describeAction,
   describeInput,
+  formatChordNotes,
+  learnSession,
   mappingTouches,
+  parseChordNotes,
   parseMappingFile,
   serialiseMappings,
   triggerForControl,
   TRIGGER_LABELS,
+  type ChordTrigger,
   type Mapping,
   type Trigger,
   type TriggerKind,
@@ -134,9 +139,135 @@ function defaultTrigger(kind: TriggerKind, previous: Trigger): Trigger {
       return { kind, controller, threshold: 64 };
     case 'ccValue':
       return { kind, controller };
+    case 'chord':
+      return previous.kind === 'chord' ? previous : chordTrigger([60, 64, 67]);
     default:
       return { kind };
   }
+}
+
+/** Starts listening for a chord and writes it into the mapping, keeping its other chord settings. */
+function learnChord(mapping: Mapping, scope: MappingScope): void {
+  learnSession.startChord(mapping.id, mapping.action, (learned) => {
+    updateMapping(
+      scope,
+      mapping.id,
+      (m) => {
+        if (learned.trigger.kind !== 'chord') return;
+        const old = m.trigger.kind === 'chord' ? m.trigger : null;
+        m.trigger = old ? { ...old, notes: learned.trigger.notes } : learned.trigger;
+        // Keys and pads are told apart by channel; a chord has no single key to range over.
+        delete m.filters.noteFrom;
+        delete m.filters.noteTo;
+      },
+      false,
+    );
+  });
+}
+
+/** The keys of a chord: learned by holding them, or typed. */
+function ChordKeys({
+  mapping,
+  chord,
+  scope,
+}: {
+  mapping: Mapping;
+  chord: ChordTrigger;
+  scope: MappingScope;
+}) {
+  const learning = useSyncExternalStore(
+    learnSession.subscribe,
+    () => learnSession.activeId === mapping.id,
+  );
+  const [heard, setHeard] = useState('');
+  const [draft, setDraft] = useState<string | null>(null);
+  const edit = (change: (t: ChordTrigger) => void) =>
+    updateMapping(scope, mapping.id, (m) => {
+      if (m.trigger.kind === 'chord') change(m.trigger);
+    });
+
+  // While learning, show the keys heard so far. Polled, so MIDI never renders React per message.
+  useEffect(() => {
+    if (!learning) return;
+    const timer = setInterval(() => setHeard(formatChordNotes(learnSession.chordNotes)), 100);
+    return () => {
+      clearInterval(timer);
+      setHeard('');
+    };
+  }, [learning]);
+
+  // Leaving the card while it is still listening must not leave the keyboard captured.
+  useEffect(
+    () => () => {
+      if (learnSession.activeId === mapping.id) learnSession.cancel();
+    },
+    [mapping.id],
+  );
+
+  const typed = draft === null ? null : parseChordNotes(draft);
+  const badDraft = draft !== null && (typed === null || typed.length < 2 || typed.length > 10);
+
+  return (
+    <div className="chord-keys" data-testid="chord-keys">
+      {learning ? (
+        <p className="chord-listening" data-testid="chord-listening">
+          <span>Hold the keys together, then let go.</span>
+          <code>{heard || '…'}</code>
+          <button className="link" onClick={() => learnSession.cancel()}>
+            Cancel
+          </button>
+        </p>
+      ) : (
+        <>
+          <label className="field wide">
+            <span>Keys in the chord</span>
+            <input
+              type="text"
+              className={badDraft ? 'invalid' : ''}
+              data-testid="chord-notes"
+              spellCheck={false}
+              value={draft ?? formatChordNotes(chord.notes)}
+              onChange={(e) => {
+                const text = e.target.value;
+                setDraft(text);
+                const notes = parseChordNotes(text);
+                if (notes && notes.length >= 2 && notes.length <= 10) {
+                  edit((t) => void (t.notes = notes));
+                }
+              }}
+              onBlur={() => setDraft(null)}
+            />
+          </label>
+          {badDraft && <p className="hint">Two to ten keys, such as C4 E4 G4 or 60 64 67.</p>}
+          <button
+            className="link"
+            onClick={() => learnChord(mapping, scope)}
+            data-testid="chord-learn"
+          >
+            Play the chord instead
+          </button>
+        </>
+      )}
+      <CheckField
+        label="In any octave"
+        value={chord.anyOctave}
+        onChange={(v) => edit((t) => void (t.anyOctave = v))}
+      />
+      <CheckField
+        label="Only when no other key is held"
+        value={chord.exact}
+        onChange={(v) => edit((t) => void (t.exact = v))}
+      />
+      <NumField
+        label="Keys land within (ms, 0 = any time)"
+        value={chord.within}
+        min={0}
+        max={5000}
+        step={50}
+        onChange={(v) => edit((t) => void (t.within = Math.round(v)))}
+      />
+    </div>
+  );
 }
 
 const isKnobLike = (ref: ControlRef): boolean =>
@@ -481,6 +612,9 @@ function MappingEditor({
           <span>{mapping.enabled ? 'On' : 'Off'}</span>
         </label>
       </div>
+      {mapping.trigger.kind === 'chord' && (
+        <ChordKeys mapping={mapping} chord={mapping.trigger} scope={scope} />
+      )}
       <ActionDetails mapping={mapping} scope={scope} deck={deck} targets={targets} />
       <div className="mapping-foot">
         <button className="link" onClick={() => setMore(!more)} aria-expanded={more}>
@@ -774,6 +908,8 @@ export function MappingPanel() {
         });
       } else if (m.trigger.kind === 'noteOn' || m.trigger.kind === 'noteOff') {
         spans.push({ from: m.filters.noteFrom ?? 0, to: m.filters.noteTo ?? 127 });
+      } else if (m.trigger.kind === 'chord' && !m.trigger.anyOctave) {
+        for (const note of m.trigger.notes) spans.push({ from: note, to: note });
       }
     };
     for (const m of deck?.mappings ?? []) add(m, false);
@@ -905,7 +1041,7 @@ export function MappingPanel() {
                   className="mapping-line"
                   onClick={() => ref && setSelected(ref)}
                   disabled={!ref}
-                  title={ref ? 'Show on the controller' : 'Covers several keys: edit it below'}
+                  title={ref ? 'Show on the controller' : 'Uses several keys: edit it below'}
                 >
                   <code className="mapping-input" data-testid="mapping-input">
                     {describeInput(m, profile)}
@@ -927,24 +1063,48 @@ export function MappingPanel() {
             );
           })}
         </ul>
-        <button
-          className="link"
-          onClick={() =>
-            addMapping(scope, {
-              id: newId('map'),
-              name: '',
-              enabled: true,
-              trigger: { kind: 'noteOn' },
-              filters: { noteFrom: low, noteTo: low + 11 },
-              action: { type: 'nav.next' },
-              curve: 'linear',
-              min: 0,
-              max: 1,
-            })
-          }
-        >
-          Map a run of keys
-        </button>
+        <div className="map-more">
+          <button
+            className="link"
+            onClick={() =>
+              addMapping(scope, {
+                id: newId('map'),
+                name: '',
+                enabled: true,
+                trigger: { kind: 'noteOn' },
+                filters: { noteFrom: low, noteTo: low + 11 },
+                action: { type: 'nav.next' },
+                curve: 'linear',
+                min: 0,
+                max: 1,
+              })
+            }
+          >
+            Map a run of keys
+          </button>
+          <button
+            className="link"
+            data-testid="map-chord"
+            title="Hold several keys together to do one thing"
+            onClick={() => {
+              const mapping: Mapping = {
+                id: newId('map'),
+                name: '',
+                enabled: true,
+                trigger: chordTrigger([60, 64, 67]),
+                filters: {},
+                action: { type: 'nav.next' },
+                curve: 'linear',
+                min: 0,
+                max: 1,
+              };
+              addMapping(scope, mapping);
+              learnChord(mapping, scope);
+            }}
+          >
+            Map a chord
+          </button>
+        </div>
       </Section>
 
       <Zones deck={deck} />

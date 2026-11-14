@@ -28,3 +28,9 @@ When the show starts, read any notices in the corner of the presenter view: they
 - **Sound-reactive slides do nothing, or go wild**: the presenter view shows a "Sound in" meter and says if the input is blocked or missing. L switches sound input off and on. Too twitchy or too dull: change the sensitivity.
 - **An animation looks stuck**: press **H** (panic). It resets the slide's animations and stays on the same slide.
 - **The stage window is lost or black**: Stagekeys reloads it on the same slide by itself. Esc ends the show; Present starts it again where you were.
+
+## Chords and transitions
+
+- A chord fires on its last key. Do not give the keys of a chord their own next-slide or go-to mappings: the first key would act before the chord is complete.
+- If a chord will not fire, check that no other key or pad is being held (or untick "Only when no other key is held"), and that the keys land together (or raise "Keys land within").
+- ASCII transitions read best at 600 to 900 ms. Rehearse once on the real projector: the first transition of the show is prepared during the warm-up, so it should be as smooth as the rest.

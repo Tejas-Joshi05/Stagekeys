@@ -2,7 +2,26 @@
 
 Stagekeys follows semantic versioning. Deck files carry their own `schemaVersion`.
 
-## 0.4.0 (unreleased)
+## 0.5.0 (unreleased)
+
+Deck schema is now version 4 (chord triggers, more transitions). Older decks open unchanged and are saved as version 4. A deck saved by 0.5.0 does not open in 0.4.0.
+
+### Chords
+
+- **Map a chord**: several keys (or pads) held together act as one control. In the Mapping tab choose "Map a chord", hold the keys, let go, and pick what the chord does. The keys can also be typed ("C4 E4 G4" or "60 64 67").
+- A chord fires on the key that completes it, at once, so it adds no delay. Options per chord: **In any octave** (C + E + G wherever they are played), **Only when no other key is held** (on by default, so playing through a chord in the middle of something bigger does not fire it), and **Keys land within** so many milliseconds (300 by default; 0 lets you hold some keys and add the last one whenever you like).
+- When a chord completes, the chord fires and the single-key mapping of its last key does not. If two chords complete on the same key, the bigger one wins. Keys pressed on the way to the chord have already done whatever they do on their own, so avoid giving a chord's keys their own slide-changing mappings.
+- A chord of pads is kept apart from the same notes on the keys (they arrive on different channels).
+- Chords appear in the presenter view's "On this slide" list like any other mapping, and how hard the chord is played can drive an animation.
+
+### Transitions
+
+- **Five ASCII transitions**: the old slide breaks into character cells that flicker through glyphs while the new slide shows through, so ASCII artwork on both slides appears to retype itself. The patterns: **ASCII dissolve** (scattered), **ASCII wipe** (across), **ASCII typewriter** (row by row), **ASCII rain** (columns falling) and **ASCII iris** (opening from the centre). Going back through the deck runs each pattern the other way. Per slide you can set the character size and the character set (riso, code, dots, binary, slashes, blocks). Inks are chosen to show on each slide's background.
+- **Three plain ones**: Dip to black, Slide up and Cover.
+- **Use on every slide** puts the current slide's transition on the whole deck in one undoable step.
+- The ASCII transitions draw on the GPU from pooled cells: nothing is allocated after the first, and their cells are built during the pre-show warm-up. Measured at 120 fps on the development Mac with 1,296 cells.
+
+## 0.4.0
 
 Deck schema is now version 3 (the planned talk length). Older decks open unchanged and are saved as version 3.
 

@@ -164,6 +164,10 @@ Web MIDI -> parser -> event bus (ring buffer, no React) -> mapping engine -> dis
 
 **Mapping resolution**: a message is matched against the current slide's mappings first, then global ones. If a per-slide mapping matches, global mappings for that same trigger are skipped.
 
+**Chords**: a `chord` trigger names two to ten notes. The mapping engine keeps a `ChordTracker` (which keys are down and since when, per channel; two typed arrays, no allocation per message) and a chord fires on the note-on that completes it, so there is no added latency. A completed chord takes precedence over single-key mappings matched by the same message, and the largest chord wins. Chord learning (`LearnSession.startChord`) gathers keys held together and finishes when they are all released; the editor polls it on a timer. See `docs/decisions/0006-chords.md`.
+
+**Transitions**: `presenter/transitions.ts` is pure: poses for the slides that move (fade, dip, slide, slide up, cover, zoom) and, for the ASCII kinds, the order and look of each cell (`cellDelay`, `cellProgress`, `tileAlpha`, `glyphAlpha`, `glyphIndex`). `presenter/GlyphTransition.ts` draws the ASCII kinds: the outgoing slide is rendered once into a texture and destroyed; a pooled `ParticleContainer` of tiles shows that texture cell by cell over the live incoming slide, with a second container of glyph particles on top. Cells that are not turning are not touched. The pool is rebuilt only when the grid or character set changes, and is built ahead of time in `warmUp`. If anything fails, the slide cuts.
+
 ## Rendering
 
 One PixiJS renderer in `render/` turns a `Slide` into a scene, reconciling elements by id. It is used in four places: the editor canvas, thumbnails, the stage, and PNG/PDF export. What you edit is what you present.

@@ -1861,3 +1861,41 @@ button.tool.toggle.on {
   padding-left: 6px;
   padding-right: 2px;
 }
+
+/* ── Chords ──────────────────────────────────────────────────────────────── */
+.chord-keys {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 6px 0;
+}
+.chord-keys input.invalid {
+  border-color: var(--rose);
+}
+.chord-listening {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 8px;
+  border: 1px dashed var(--rose);
+  border-radius: 4px;
+}
+.chord-listening code {
+  color: var(--rose);
+}
+.chord-keys {
+  align-items: flex-start;
+}
+.chord-keys > .field {
+  align-self: stretch;
+}
+.map-more {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 18px;
+}
+.mapping-input {
+  white-space: normal;
+}

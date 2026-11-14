@@ -12,6 +12,7 @@
 import { CURRENT_SCHEMA_VERSION } from '../schema';
 import { audioBindings } from './001-audio-bindings';
 import { talkLength } from './002-talk-length';
+import { chordsAndTransitions } from './003-chords-and-transitions';
 
 export type Migration = (deck: Record<string, unknown>) => Record<string, unknown>;
 
@@ -19,6 +20,7 @@ export type Migration = (deck: Record<string, unknown>) => Record<string, unknow
 export const migrations: Readonly<Record<number, Migration>> = {
   1: audioBindings,
   2: talkLength,
+  3: chordsAndTransitions,
 };
 
 export class DeckVersionError extends Error {

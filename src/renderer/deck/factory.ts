@@ -1,6 +1,7 @@
 import { newId } from '../shared/util';
 import {
   CURRENT_SCHEMA_VERSION,
+  DEFAULT_TRANSITION,
   type AnimationElement,
   type Deck,
   type ImageElement,
@@ -19,7 +20,7 @@ export function createSlide(name = ''): Slide {
     background: { color: '#101014' },
     elements: [],
     notes: '',
-    transition: { kind: 'cut', duration: 400 },
+    transition: { ...DEFAULT_TRANSITION },
     mappings: [],
   };
 }

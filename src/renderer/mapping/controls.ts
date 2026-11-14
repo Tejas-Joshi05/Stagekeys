@@ -2,6 +2,7 @@ import type { ControllerProfile } from '../../ipc/settings';
 import { controlFor, MOD_CC, padFor, SUSTAIN_CC, type ControlRef, type MidiMessage } from '../midi';
 import { useSettings } from '../shared/settings';
 import { noteName } from '../shared/util';
+import { describeChord } from './chords';
 import type { Filters, Mapping, Trigger } from './types';
 
 /*
@@ -105,6 +106,10 @@ export function describeInput(m: Mapping, profile: ControllerProfile): string {
   const t = m.trigger;
   const f = m.filters;
   const ref = controlOfMapping(m, profile);
+  if (t.kind === 'chord') {
+    const where = f.channel === profile.padChannel ? ' on the pads' : '';
+    return `Chord ${describeChord(t)}${where}`;
+  }
   const releaseSuffix = t.kind === 'noteOff' ? ' (let go)' : '';
   if (isNoteTrigger(t)) {
     if (ref?.kind === 'pad')

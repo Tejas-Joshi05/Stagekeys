@@ -74,6 +74,34 @@ test('animations play, the show survives a stress run, and export works', async 
   // A planned length for the talk, for the countdown in the presenter view.
   await win.getByTestId('talk-length').fill('20');
 
+  // Every slide arrives through an ASCII transition, so the stress run below hammers those too.
+  await win.keyboard.press('Escape');
+  await win.getByTestId('slide-thumb').nth(1).click();
+  await win.getByTestId('transition-kind').selectOption('ascii-dissolve');
+  await win.getByTestId('transition-everywhere').click();
+  await win.getByTestId('slide-thumb').nth(2).click();
+  await expect(win.getByTestId('transition-kind')).toHaveValue('ascii-dissolve');
+  await win.getByTestId('transition-kind').selectOption('ascii-rain');
+  await win.getByTestId('slide-thumb').nth(3).click();
+  await win.getByTestId('transition-kind').selectOption('slide-up');
+
+  // A chord, learned by holding three keys: C4 + E4 + G4 goes to the next slide.
+  await win.getByTestId('tab-mappings').click();
+  await win.getByTestId('map-chord').click();
+  await expect(win.getByTestId('chord-listening')).toBeVisible();
+  await win.evaluate(() => {
+    const midi = window.__stagekeysMidi;
+    for (const note of [60, 64, 67]) midi?.([0x90, note, 100]);
+  });
+  await expect(win.getByTestId('chord-listening')).toContainText('C4 E4 G4');
+  await win.evaluate(() => {
+    const midi = window.__stagekeysMidi;
+    for (const note of [60, 64, 67]) midi?.([0x80, note, 0]);
+  });
+  await expect(win.getByTestId('mapping-input')).toHaveText('Chord C4 + E4 + G4');
+  await expect(win.getByTestId('chord-notes')).toHaveValue('C4 E4 G4');
+  await win.getByTestId('tab-properties').click();
+
   await win.getByTestId('save').click();
   await expect(win.getByTestId('save-status')).toHaveText('Saved');
 
@@ -124,6 +152,22 @@ test('animations play, the show survives a stress run, and export works', async 
   await expect
     .poll(() => stage.evaluate(() => window.__stagekeysStage?.fps() ?? 0), { timeout: 10_000 })
     .toBeGreaterThan(30);
+
+  // The chord goes to the next slide; two of its three keys do not.
+  await stage.keyboard.press('Home');
+  await expect.poll(() => stage.evaluate(() => window.__stagekeysStage?.slideIndex())).toBe(0);
+  await stage.evaluate(() => {
+    const midi = window.__stagekeysMidi;
+    midi?.([0x90, 60, 100]);
+    midi?.([0x90, 64, 100]);
+  });
+  await expect.poll(() => stage.evaluate(() => window.__stagekeysStage?.slideIndex())).toBe(0);
+  await stage.evaluate(() => window.__stagekeysMidi?.([0x90, 67, 100]));
+  await expect.poll(() => stage.evaluate(() => window.__stagekeysStage?.slideIndex())).toBe(1);
+  await stage.evaluate(() => {
+    const midi = window.__stagekeysMidi;
+    for (const note of [60, 64, 67]) midi?.([0x80, note, 0]);
+  });
 
   // Slide 5 is a text reveal: the presenter view counts the key presses left.
   await stage.keyboard.press('Home');

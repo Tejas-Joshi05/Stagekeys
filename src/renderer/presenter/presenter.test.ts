@@ -6,7 +6,20 @@ import { preflight, talkClock } from './preflight';
 import { describe, expect, it } from 'vitest';
 import { ControlMessageSchema, StageMessageSchema } from './messages';
 import { ShowTimeline } from './timeline';
-import { transitionFrame } from './transitions';
+import { TRANSITION_GLYPH_NAMES } from '../deck';
+import {
+  cellDelay,
+  cellProgress,
+  glyphAlpha,
+  glyphGrid,
+  glyphIndex,
+  isGlyphTransition,
+  tileAlpha,
+  TRANSITION_GLYPHS,
+  TRANSITION_KINDS,
+  TRANSITION_LABELS,
+  transitionFrame,
+} from './transitions';
 
 describe('ShowTimeline (rehearsal timings)', () => {
   it('adds up time per slide across visits', () => {
@@ -40,13 +53,45 @@ describe('ShowTimeline (rehearsal timings)', () => {
 
 describe('transitions', () => {
   const W = 1920;
-  it.each(['fade', 'slide', 'zoom'] as const)(
-    '%s ends with the incoming slide fully in place',
-    (kind) => {
-      const end = transitionFrame(kind, 1, W, 1);
-      expect(end.incoming).toEqual({ alpha: 1, x: 0, scale: 1 });
-    },
-  );
+  it.each(TRANSITION_KINDS)('%s ends with the incoming slide fully in place', (kind) => {
+    for (const direction of [1, -1] as const) {
+      const end = transitionFrame(kind, 1, W, direction).incoming;
+      expect(end.alpha).toBe(1);
+      expect(end.scale).toBe(1);
+      expect(Math.abs(end.x)).toBe(0);
+      expect(Math.abs(end.y)).toBe(0);
+    }
+  });
+
+  it('has a label for every kind, and knows which ones are drawn in characters', () => {
+    for (const kind of TRANSITION_KINDS) expect(TRANSITION_LABELS[kind]).toBeTruthy();
+    expect(TRANSITION_KINDS.filter(isGlyphTransition)).toEqual([
+      'ascii-dissolve',
+      'ascii-wipe',
+      'ascii-scan',
+      'ascii-rain',
+      'ascii-iris',
+    ]);
+  });
+
+  it('slide up moves vertically, by the slide height', () => {
+    expect(transitionFrame('slide-up', 0, W, 1, 1080).incoming).toMatchObject({ x: 0, y: 1080 });
+    expect(transitionFrame('slide-up', 0, W, -1, 1080).incoming.y).toBe(-1080);
+    expect(transitionFrame('slide-up', 1, W, 1, 1080).outgoing.y).toBe(-1080);
+  });
+
+  it('cover leaves the old slide where it is', () => {
+    const mid = transitionFrame('cover', 0.5, W, 1);
+    expect(mid.outgoing.x).toBe(0);
+    expect(mid.incoming.x).toBeCloseTo(W / 2);
+  });
+
+  it('dip passes through black: neither slide shows at the halfway point', () => {
+    const mid = transitionFrame('dip', 0.5, W, 1);
+    expect(mid.incoming.alpha).toBe(0);
+    expect(mid.outgoing.alpha).toBe(0);
+    expect(transitionFrame('dip', 0, W, 1).outgoing.alpha).toBe(1);
+  });
 
   it('fade starts with the incoming slide invisible', () => {
     expect(transitionFrame('fade', 0, W, 1).incoming.alpha).toBe(0);
@@ -229,5 +274,105 @@ describe('what the keys do on this slide', () => {
       { input: 'Pad 2', does: 'Next slide', here: false },
     ]);
     expect(cheatSheet(deck, 7, DEFAULT_SETTINGS.controller)).toEqual([]);
+  });
+});
+
+describe('ASCII transitions', () => {
+  const kinds = TRANSITION_KINDS.filter(isGlyphTransition);
+  const COLS = 48;
+  const ROWS = 27;
+
+  it.each(kinds)('%s gives every cell a start between 0 and 1, both ways', (kind) => {
+    for (const direction of [1, -1] as const) {
+      let lo = 1;
+      let hi = 0;
+      for (let r = 0; r < ROWS; r++) {
+        for (let c = 0; c < COLS; c++) {
+          const d = cellDelay(kind, c, r, COLS, ROWS, direction);
+          expect(d).toBeGreaterThanOrEqual(0);
+          expect(d).toBeLessThanOrEqual(1);
+          lo = Math.min(lo, d);
+          hi = Math.max(hi, d);
+        }
+      }
+      // The cells are spread over the whole transition, not bunched together.
+      expect(lo).toBeLessThan(0.15);
+      expect(hi).toBeGreaterThan(0.85);
+    }
+  });
+
+  it('survives a grid of one cell', () => {
+    for (const kind of kinds) expect(Number.isFinite(cellDelay(kind, 0, 0, 1, 1, 1))).toBe(true);
+  });
+
+  it('the patterns run in the directions their names say', () => {
+    expect(cellDelay('ascii-scan', 0, 0, COLS, ROWS, 1)).toBe(0);
+    expect(cellDelay('ascii-scan', COLS - 1, ROWS - 1, COLS, ROWS, 1)).toBe(1);
+    expect(cellDelay('ascii-scan', 0, 0, COLS, ROWS, -1)).toBe(1);
+    expect(cellDelay('ascii-wipe', 0, 5, COLS, ROWS, 1)).toBeLessThan(
+      cellDelay('ascii-wipe', COLS - 1, 5, COLS, ROWS, 1),
+    );
+    expect(cellDelay('ascii-wipe', 0, 5, COLS, ROWS, -1)).toBeGreaterThan(
+      cellDelay('ascii-wipe', COLS - 1, 5, COLS, ROWS, -1),
+    );
+    expect(cellDelay('ascii-rain', 7, 0, COLS, ROWS, 1)).toBeLessThan(
+      cellDelay('ascii-rain', 7, ROWS - 1, COLS, ROWS, 1),
+    );
+    expect(cellDelay('ascii-iris', 24, 13, COLS, ROWS, 1)).toBeLessThan(
+      cellDelay('ascii-iris', 0, 0, COLS, ROWS, 1),
+    );
+    expect(cellDelay('ascii-iris', 24, 13, COLS, ROWS, -1)).toBeGreaterThan(
+      cellDelay('ascii-iris', 0, 0, COLS, ROWS, -1),
+    );
+  });
+
+  it('every cell has not started at the beginning and is finished at the end', () => {
+    for (const delay of [0, 0.3, 1]) {
+      expect(cellProgress(0, delay)).toBe(0);
+      expect(cellProgress(1, delay)).toBe(1);
+    }
+    expect(cellProgress(0.5, 0)).toBe(1);
+    expect(cellProgress(0.5, 1)).toBe(0);
+    expect(cellProgress(7, 1)).toBe(1);
+  });
+
+  it('a cell shows the old slide, then a glyph, then nothing but the new slide', () => {
+    expect(tileAlpha(0)).toBe(1);
+    expect(tileAlpha(1)).toBe(0);
+    expect(tileAlpha(0.7)).toBe(0);
+    expect(glyphAlpha(0)).toBe(0);
+    expect(glyphAlpha(1)).toBe(0);
+    expect(glyphAlpha(0.4)).toBe(1);
+    for (let u = 0; u <= 1; u += 0.05) {
+      expect(tileAlpha(u)).toBeGreaterThanOrEqual(0);
+      expect(tileAlpha(u)).toBeLessThanOrEqual(1);
+      expect(glyphAlpha(u)).toBeGreaterThanOrEqual(0);
+      expect(glyphAlpha(u)).toBeLessThanOrEqual(1);
+    }
+  });
+
+  it('always picks a real, non-empty glyph from the set', () => {
+    for (const name of TRANSITION_GLYPH_NAMES) {
+      const count = [...TRANSITION_GLYPHS[name]].length;
+      expect(TRANSITION_GLYPHS[name].startsWith(' ')).toBe(true);
+      for (let cell = 0; cell < 50; cell++) {
+        for (let u = 0; u <= 1; u += 0.1) {
+          const ix = glyphIndex(u, cell, count);
+          expect(ix).toBeGreaterThanOrEqual(1);
+          expect(ix).toBeLessThan(count);
+        }
+      }
+    }
+    expect(glyphIndex(0.5, 3, 1)).toBe(0);
+  });
+
+  it('covers the slide and never makes more cells than it can draw quickly', () => {
+    const normal = glyphGrid(1920, 1080, 40);
+    expect(normal).toEqual({ cell: 40, cols: 48, rows: 27 });
+    const tiny = glyphGrid(1920, 1080, 12, 6000);
+    expect(tiny.cols * tiny.rows).toBeLessThanOrEqual(6000);
+    expect(tiny.cols * tiny.cell).toBeGreaterThanOrEqual(1920);
+    expect(tiny.rows * tiny.cell).toBeGreaterThanOrEqual(1080);
+    expect(glyphGrid(1920, 1080, Number.NaN).cell).toBe(40);
   });
 });

@@ -1,6 +1,7 @@
 import type { Action } from '../actions';
 import { SUSTAIN_CC, type MidiMessage } from '../midi';
 import { clamp01 } from '../shared/util';
+import type { ChordTracker } from './chords';
 import { scaleValue } from './curves';
 import type { Filters, Mapping } from './types';
 
@@ -21,8 +22,14 @@ function passesNoteRange(filters: Filters, note: number): boolean {
  * by the message (velocity or CC position), or null if it does not match.
  * `previousCc` is the controller's value before this message, so threshold
  * triggers fire once on the crossing instead of on every message past it.
+ * `chords` knows which keys are down; without it chord triggers never fire.
  */
-export function matchMapping(mapping: Mapping, m: MidiMessage, previousCc: number): number | null {
+export function matchMapping(
+  mapping: Mapping,
+  m: MidiMessage,
+  previousCc: number,
+  chords?: ChordTracker,
+): number | null {
   if (!mapping.enabled) return null;
   const { trigger, filters } = mapping;
   if (!passesCommonFilters(filters, m)) return null;
@@ -53,6 +60,10 @@ export function matchMapping(mapping: Mapping, m: MidiMessage, previousCc: numbe
     case 'sustainUp':
       if (m.type !== 'cc' || m.controller !== SUSTAIN_CC) return null;
       return m.value < 64 && previousCc >= 64 ? 0 : null;
+    case 'chord':
+      // Fires on the key that completes the chord, carrying how hard that key was hit.
+      if (m.type !== 'noteOn' || !chords?.completes(trigger, m)) return null;
+      return m.velocity / 127;
   }
 }
 
@@ -62,31 +73,45 @@ export interface MappingMatch {
   scope: 'slide' | 'global';
 }
 
+const chordSize = (match: MappingMatch): number =>
+  match.mapping.trigger.kind === 'chord' ? match.mapping.trigger.notes.length : 0;
+
+/** When a chord completes, only the chord fires (the biggest, if several do): not its last key's own mapping. */
+function chordsFirst(matches: MappingMatch[]): MappingMatch[] {
+  let biggest = 0;
+  for (const match of matches) biggest = Math.max(biggest, chordSize(match));
+  return biggest === 0 ? matches : matches.filter((match) => chordSize(match) === biggest);
+}
+
 /**
  * Finds the mappings that fire for a message. Per-slide mappings win: if any
  * mapping on the current slide matches, global mappings are not consulted.
+ * A completed chord wins over the single-key mapping of the key that
+ * completed it.
  */
 export function resolveMappings(
   m: MidiMessage,
   previousCc: number,
   slideMappings: readonly Mapping[],
   globalMappings: readonly Mapping[],
+  chords?: ChordTracker,
 ): MappingMatch[] {
   const collect = (list: readonly Mapping[], scope: MappingMatch['scope']): MappingMatch[] => {
     const out: MappingMatch[] = [];
     for (const mapping of list) {
-      const value = matchMapping(mapping, m, previousCc);
+      const value = matchMapping(mapping, m, previousCc, chords);
       if (value !== null) out.push({ mapping, value, scope });
     }
     return out;
   };
   const local = collect(slideMappings, 'slide');
-  return local.length > 0 ? local : collect(globalMappings, 'global');
+  return chordsFirst(local.length > 0 ? local : collect(globalMappings, 'global'));
 }
 
 /** True when the trigger carries a meaningful value (velocity or knob position). */
 export function carriesValue(mapping: Mapping): boolean {
-  return mapping.trigger.kind === 'noteOn' || mapping.trigger.kind === 'ccValue';
+  const kind = mapping.trigger.kind;
+  return kind === 'noteOn' || kind === 'ccValue' || kind === 'chord';
 }
 
 /** Builds the action to dispatch, feeding the shaped value into it where the action takes one. */

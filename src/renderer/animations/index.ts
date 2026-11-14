@@ -22,4 +22,12 @@ export {
 } from './host';
 export { getAnimation, listAnimations } from './registry';
 export { flowerImage, FLOWERS, plantImage, PLANTS, preloadArt } from './art';
-export { hash as asciiHash, inkToGlyph, RAMP, RAMP_MAX } from './glyphs';
+export {
+  ATLAS_FONT_PX,
+  hash as asciiHash,
+  inkToGlyph,
+  RAMP,
+  RAMP_MAX,
+  sharedGlyphAtlas,
+  type GlyphAtlas,
+} from './glyphs';

@@ -159,6 +159,13 @@ export function setSlideTransition(id: string, transition: Partial<Transition>):
   );
 }
 
+/** Gives every slide the same transition, as one undoable edit. */
+export function setEveryTransition(transition: Transition): void {
+  exec('Use transition on every slide', (d) => {
+    for (const slide of d.slides) slide.transition = { ...transition };
+  });
+}
+
 // ── Elements ────────────────────────────────────────────────────────────────
 
 export function addElements(elements: SlideElement[], label = 'Add element'): void {
