@@ -336,6 +336,13 @@ function birds(s: Garden, t: number, on: boolean): void {
 export const asciiGarden = defineAnimation({
   id: 'ascii-garden',
   name: 'ASCII garden',
+  summary: 'plants that ripple as you play',
+  groups: [
+    { title: 'Plant', params: ['plant', 'fit', 'cellSize', 'growIn', 'autoChange', 'birds'] },
+    { title: 'Ink', params: ['print', 'inkColour', 'misColour'] },
+    { title: 'Movement', params: ['wind', 'sway'] },
+    { title: 'When you press a key', params: ['keyPress', 'rippleSize'] },
+  ],
   description:
     'The live ASCII plants from tejasjoshi.vercel.app. Keys send ripples through the glyphs, a mapped trigger grows the next plant, held keys thicken the ink, pitch bend leans it and the mod wheel blows it about.',
   inputs: ['trigger', 'velocity', 'heldNotes', 'pitchBend', 'cc'],

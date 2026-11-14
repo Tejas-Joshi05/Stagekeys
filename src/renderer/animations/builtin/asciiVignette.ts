@@ -409,6 +409,26 @@ function draw(s: Vignette, t: number, p: Params, live: Live): void {
 export const asciiVignette = defineAnimation({
   id: 'ascii-vignette',
   name: 'ASCII vignette',
+  summary: 'a frame that moves to sound and keys',
+  groups: [
+    { title: 'Shape', params: ['shape', 'opening', 'softness', 'wobble', 'invert'] },
+    {
+      title: 'Ink',
+      params: [
+        'glyphs',
+        'cellSize',
+        'density',
+        'print',
+        'inkColour',
+        'misColour',
+        'keyColour',
+        'grain',
+        'drift',
+      ],
+    },
+    { title: 'When there is sound', params: ['audioReacts', 'audioAmount', 'beatKick'] },
+    { title: 'When you press a key', params: ['midiReacts', 'midiAmount', 'keysFrom'] },
+  ],
   description:
     'A frame of ASCII ink around the slide, in a shape you choose. Sound input moves the whole frame (it breathes, closes in, shivers or works as an equaliser); keys leave their own marks in a third ink (bites where the key sits, ripples, a flash or an iris). Pitch bend slides the opening sideways and the mod wheel makes the edge restless.',
   inputs: ['audio', 'trigger', 'velocity', 'heldNotes', 'pitchBend', 'cc'],

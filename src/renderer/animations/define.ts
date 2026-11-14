@@ -86,6 +86,14 @@ export interface AnimationDefinition<S extends z.ZodObject, State> {
   /** Parameter schema. Every field needs a default; the properties panel is generated from it. */
   params: S;
   inputs: readonly MidiInputKind[];
+  /** A few words for the Add animation menu: "plants that ripple as you play". */
+  summary?: string;
+  /**
+   * Headings for the properties panel, each with the parameters under it, in
+   * order. Worth adding once there are more than ten or so parameters.
+   * Parameters left out are listed last under "More".
+   */
+  groups?: readonly ParamGroup<keyof z.infer<S> & string>[];
   /** Size of a newly placed instance, in slide pixels. */
   defaultSize?: { width: number; height: number };
   /** Bindings a newly placed instance starts with. */
@@ -117,6 +125,11 @@ export interface AnimationDefinition<S extends z.ZodObject, State> {
   listensToSound?(params: z.infer<S>): boolean;
 }
 
+export interface ParamGroup<K extends string = string> {
+  title: string;
+  params: readonly K[];
+}
+
 export interface DefaultBinding {
   param: string;
   source: BindingSource;
@@ -132,6 +145,8 @@ export interface RegisteredAnimation {
   id: string;
   name: string;
   description: string;
+  summary: string;
+  groups: readonly ParamGroup[];
   schema: z.ZodObject;
   inputs: readonly MidiInputKind[];
   defaultSize: { width: number; height: number };
@@ -161,6 +176,8 @@ export function defineAnimation<S extends z.ZodObject, State>(
     id: def.id,
     name: def.name,
     description: def.description,
+    summary: def.summary ?? '',
+    groups: def.groups ?? [],
     schema: def.params,
     inputs: def.inputs,
     defaultSize: def.defaultSize ?? { width: 600, height: 600 },

@@ -17,6 +17,7 @@ const easeOutCubic = (t: number): number => 1 - Math.pow(1 - t, 3);
 export const bloom = defineAnimation({
   id: 'bloom',
   name: 'Bloom',
+  summary: 'a shape blooms on each note',
   description:
     'A shape blooms outward on each note. Bind velocity to Size to make harder hits bloom bigger.',
   inputs: ['trigger', 'velocity'],

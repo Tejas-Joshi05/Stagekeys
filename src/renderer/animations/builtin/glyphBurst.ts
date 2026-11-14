@@ -159,6 +159,15 @@ function applyLook(s: Burst, p: Params): void {
 export const glyphBurst = defineAnimation({
   id: 'glyph-burst',
   name: 'Glyph burst',
+  summary: 'keys throw glyphs into the air',
+  groups: [
+    {
+      title: 'Glyphs',
+      params: ['glyphs', 'count', 'size', 'glow', 'colour', 'colour2', 'colour3'],
+    },
+    { title: 'Flight', params: ['from', 'speed', 'spread', 'gravity', 'life', 'spin'] },
+    { title: 'When there is sound', params: ['soundBeats'] },
+  ],
   description:
     'Every key throws a handful of glyphs into the air from where that key sits; they tumble and fall back. Harder hits throw more, further. A mapped pad sets one off too, and so can a clap or a beat in the sound input.',
   inputs: ['trigger', 'velocity', 'audio'],

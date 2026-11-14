@@ -18,6 +18,7 @@ const MAX_RINGS = 48;
 export const ripple = defineAnimation({
   id: 'ripple',
   name: 'Ripple',
+  summary: 'rings spread from each note',
   description: 'Rings expand from a point on each note. Optionally the point moves with the pitch.',
   inputs: ['trigger', 'velocity'],
   defaultSize: { width: 900, height: 600 },

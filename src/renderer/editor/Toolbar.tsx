@@ -85,16 +85,18 @@ function DisplayPicker() {
   }, []);
   const fallback = (displays.find((d) => !d.primary) ?? displays[0])?.id;
   const value = displays.some((d) => d.id === displayId) ? displayId : fallback;
+  const shown = displays.find((d) => d.id === value);
   return (
     <select
       className="display-picker"
-      title="Screen the audience sees"
+      title={`Screen the audience sees${shown ? ` (${shown.width}×${shown.height})` : ''}`}
+      aria-label="Screen the audience sees"
       value={value ?? ''}
       onChange={(e) => setShowDisplay(Number(e.target.value))}
     >
       {displays.map((d) => (
         <option key={d.id} value={d.id}>
-          {d.primary ? 'This screen' : d.label} ({d.width}×{d.height})
+          {d.primary ? 'This screen' : d.label}
         </option>
       ))}
     </select>
@@ -227,7 +229,7 @@ export function Toolbar() {
           <option value="">Add animation</option>
           {listAnimations().map((a) => (
             <option key={a.id} value={a.id} title={a.description}>
-              {a.name}
+              {a.summary ? `${a.name}: ${a.summary}` : a.name}
             </option>
           ))}
         </select>
@@ -245,6 +247,7 @@ export function Toolbar() {
           data-testid="toggle-piano"
         >
           <Icon name="piano" />
+          <span className="tool-label">Piano</span>
         </button>
         <button
           className={soundIn ? 'tool toggle on' : 'tool toggle'}
@@ -254,6 +257,7 @@ export function Toolbar() {
           data-testid="toggle-sound-input"
         >
           <Icon name="sound" />
+          <span className="tool-label">Sound in</span>
         </button>
         <button
           className={keys ? 'tool toggle on' : 'tool toggle'}
@@ -263,6 +267,7 @@ export function Toolbar() {
           data-testid="toggle-keys"
         >
           <Icon name="keys" />
+          <span className="tool-label">Keys</span>
         </button>
         <MidiStatusBadge status={midiStatus} detail={midiDetail} />
       </div>
@@ -272,6 +277,7 @@ export function Toolbar() {
           className="talk-length"
           title="Planned length of the talk in minutes. The presenter view counts down to it. Leave empty for no countdown."
         >
+          <span>Talk</span>
           <input
             type="number"
             min={0}

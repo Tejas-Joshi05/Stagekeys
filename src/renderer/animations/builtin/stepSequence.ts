@@ -39,6 +39,7 @@ const easeOut = (t: number): number => 1 - Math.pow(1 - t, 3);
 export const stepSequence = defineAnimation({
   id: 'step-sequence',
   name: 'Step sequence',
+  summary: 'a diagram revealed step by step',
   description:
     'Each key press reveals the next step and sends a signal to it. Earlier steps stay visible.',
   inputs: ['trigger'],

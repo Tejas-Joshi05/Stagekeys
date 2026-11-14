@@ -82,6 +82,12 @@ Only numeric parameters can be bound. A binding follows velocity, a CC knob, pit
 
 Optional `paramsFor({ dark })` returns starting values for a newly placed instance, picked from the slide's background. The ASCII garden uses it to print cream ink that glows on dark slides and keep the website's olive-on-cream riso look on light ones.
 
+## How it appears in the editor
+
+- `summary`: a few words (40 characters at most) shown beside the name in the Add animation menu, such as "rings spread from each note".
+- `groups`: headings for the properties panel, each listing the parameters under it. Add them once an animation has more than about ten parameters; a test fails if a long list is left ungrouped or a group names a parameter that does not exist. Parameters you leave out appear last under "More".
+- Numeric parameters get a slider beside the number box when their range has at least eight steps, so choose `min`, `max` and `step` to match how the setting is used.
+
 ## Telling the presenter view about it
 
 Two optional functions on the definition:

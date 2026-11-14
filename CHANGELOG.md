@@ -14,6 +14,14 @@ Deck schema is now version 3 (the planned talk length). Older decks open unchang
 - **Pre-show checks**: when a show starts, quiet notices say if no MIDI keyboard is connected, if slides react to sound while sound input is off or cannot hear anything, if the deck uses animations this version does not have, or if mappings point at things that no longer exist. They never stop the show.
 - **Notes size**: A− and A+ in the presenter view; remembered.
 
+### A clearer editor
+
+- **The toolbar no longer hides Present.** It used to scroll sideways without showing it, so on a normal-sized window Present and the save status were cut off. Everything now fits on one row, and on a narrow window the show buttons move to a second row instead of disappearing. The sound, piano and keys buttons carry labels on a wide window, and the talk length box is labelled.
+- **An animation's own settings come first.** Selecting an animation used to show position, size and twelve arranging buttons before anything about the animation. Its settings are now at the top; "Position and size" and "Arrange" are below and can be folded away (folded by default for animations; the choice is remembered). Text and shapes follow the same order: content first.
+- **Settings are grouped under headings** ("Shape", "Ink", "When there is sound", "When you press a key") instead of one list of twenty fields, for the animations that have many.
+- **Sliders** for every setting with a range, next to the number box, and for opacity.
+- **The Add animation menu says what each one does** in a few words.
+
 ### New animations
 
 - **Note trails**: a piano roll that draws itself as you play. Each key sends up a bar from its place along the edge for as long as it is held, and the bar drifts away when you let go. Colours run from low notes to high; harder hits can be brighter or wider; bars can travel up or down.
@@ -47,7 +55,7 @@ Deck schema is now version 2. Decks from 0.1.0 and 0.2.0 open unchanged and are 
 
 ### Not verified
 
-- Sound input is tested end to end with Chromium's built-in fake microphone (open the device, measure it, hand it from the editor to the stage and back). It has not been tried with a physical microphone in the installed app, where macOS asks for permission, and not on Windows.
+- Sound input is tested end to end with Chromium's built-in fake microphone (open the device, measure it, hand it from the editor to the stage and back). Tejas has since confirmed it works with a physical microphone in the installed app on macOS. It has not been tried on Windows.
 
 ## 0.2.0
 

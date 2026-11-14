@@ -7,6 +7,7 @@ import { defineAnimation, param } from '../define';
 export const pulse = defineAnimation({
   id: 'pulse',
   name: 'Pulse',
+  summary: 'a shape pulses on each note',
   description: 'A shape that pulses on each note and settles back to its resting size.',
   inputs: ['trigger', 'velocity'],
   defaultSize: { width: 400, height: 400 },

@@ -34,6 +34,7 @@ export function splitUnits(line: string, mode: Params['mode']): string[] {
 export const textReveal = defineAnimation({
   id: 'text-reveal',
   name: 'Text reveal',
+  summary: 'words appear as you press keys',
   description: 'Text appears word by word or letter by letter on key presses.',
   inputs: ['trigger'],
   defaultSize: { width: 1200, height: 300 },

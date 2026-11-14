@@ -615,3 +615,37 @@ describe('glyph burst', () => {
     expect(def.listensToSound(def.parseParams({ soundBeats: true }))).toBe(true);
   });
 });
+
+describe('how animations present themselves in the editor', () => {
+  it('every animation has a short summary for the Add animation menu', () => {
+    for (const animation of listAnimations()) {
+      expect(animation.summary.length, animation.id).toBeGreaterThan(5);
+      expect(animation.summary.length, animation.id).toBeLessThanOrEqual(40);
+    }
+  });
+
+  it('groups name real parameters, each at most once', () => {
+    for (const animation of listAnimations()) {
+      const keys = controlsFor(animation).map((c) => c.key);
+      const grouped = animation.groups.flatMap((g) => g.params);
+      for (const key of grouped) expect(keys, `${animation.id}: ${key}`).toContain(key);
+      expect(new Set(grouped).size, animation.id).toBe(grouped.length);
+      for (const group of animation.groups) {
+        expect(group.title.length, animation.id).toBeGreaterThan(0);
+        expect(group.params.length, `${animation.id}: ${group.title}`).toBeGreaterThan(0);
+      }
+    }
+  });
+
+  it('animations with many settings are grouped, and leave nothing out', () => {
+    for (const animation of listAnimations()) {
+      const keys = controlsFor(animation).map((c) => c.key);
+      if (keys.length <= 11) continue;
+      const grouped = new Set(animation.groups.flatMap((g) => g.params));
+      expect(
+        keys.filter((k) => !grouped.has(k)),
+        animation.id,
+      ).toEqual([]);
+    }
+  });
+});

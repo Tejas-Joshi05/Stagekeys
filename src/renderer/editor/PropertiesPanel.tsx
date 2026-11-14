@@ -1,7 +1,13 @@
 import { useEffect, useState } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { dispatch } from '../actions';
-import { bindableParams, controlsFor, getAnimation, type ParamControl } from '../animations';
+import {
+  bindableParams,
+  controlsFor,
+  getAnimation,
+  type ParamControl,
+  type RegisteredAnimation,
+} from '../animations';
 import {
   addMapping,
   getCurrentSlide,
@@ -204,6 +210,8 @@ function ParamField({
       return (
         <NumField
           label={control.label}
+          // A slider where dragging is useful: a bounded range with enough steps to feel.
+          slider={(control.max - control.min) / control.step >= 8}
           value={typeof value === 'number' ? value : control.default}
           min={control.min}
           max={control.max}
@@ -248,6 +256,25 @@ function ParamField({
         />
       );
   }
+}
+
+/** The animation's settings under its own headings; anything it did not place goes last. */
+function groupControls(def: RegisteredAnimation): { title: string; controls: ParamControl[] }[] {
+  const controls = controlsFor(def);
+  if (def.groups.length === 0) return [{ title: '', controls }];
+  const placed = new Set<string>();
+  const groups = def.groups.map((group) => ({
+    title: group.title,
+    controls: group.params.flatMap((key) => {
+      const control = controls.find((c) => c.key === key);
+      if (!control || placed.has(key)) return [];
+      placed.add(key);
+      return [control];
+    }),
+  }));
+  const rest = controls.filter((c) => !placed.has(c.key));
+  if (rest.length > 0) groups.push({ title: 'More', controls: rest });
+  return groups.filter((g) => g.controls.length > 0);
 }
 
 const SOURCE_OPTIONS: { value: Binding['source']; label: string }[] = [
@@ -348,37 +375,42 @@ function AnimationProps({ el }: { el: AnimationElement }) {
         }
       >
         <p className="hint">{def.description}</p>
-        <div className="grid2">
-          {controlsFor(def).map((control) => {
-            // A bound parameter follows MIDI, so its own field would have no effect.
-            const binding = el.bindings.find((b) => b.param === control.key);
-            if (binding) {
-              const source =
-                binding.source === 'cc'
-                  ? `knob CC ${binding.controller}`
-                  : (SOURCE_OPTIONS.find((o) => o.value === binding.source)?.label ??
-                    binding.source);
-              return (
-                <div className="field" key={control.key}>
-                  <span>{control.label}</span>
-                  <span className="bound-note" data-testid="bound-note">
-                    Follows {source.toLowerCase()}
-                  </span>
-                </div>
-              );
-            }
-            return (
-              <ParamField
-                key={control.key}
-                control={control}
-                value={params[control.key]}
-                onChange={(value) =>
-                  edit((a) => void (a.params[control.key] = value), `param:${control.key}`)
+        {groupControls(def).map((group) => (
+          <div key={group.title} className="param-group" data-testid="param-group">
+            {group.title && <h4>{group.title}</h4>}
+            <div className="grid2">
+              {group.controls.map((control) => {
+                // A bound parameter follows MIDI, so its own field would have no effect.
+                const binding = el.bindings.find((b) => b.param === control.key);
+                if (binding) {
+                  const source =
+                    binding.source === 'cc'
+                      ? `knob CC ${binding.controller}`
+                      : (SOURCE_OPTIONS.find((o) => o.value === binding.source)?.label ??
+                        binding.source);
+                  return (
+                    <div className="field" key={control.key}>
+                      <span>{control.label}</span>
+                      <span className="bound-note" data-testid="bound-note">
+                        Follows {source.toLowerCase()}
+                      </span>
+                    </div>
+                  );
                 }
-              />
-            );
-          })}
-        </div>
+                return (
+                  <ParamField
+                    key={control.key}
+                    control={control}
+                    value={params[control.key]}
+                    onChange={(value) =>
+                      edit((a) => void (a.params[control.key] = value), `param:${control.key}`)
+                    }
+                  />
+                );
+              })}
+            </div>
+          </div>
+        ))}
       </Section>
 
       <Section title="Reacts to keys">
@@ -565,106 +597,26 @@ function ElementProps({ elements }: { elements: SlideElement[] }) {
     );
   };
 
+  // Animations fill most of the slide and have many settings of their own, so their
+  // position and arranging start folded away; other elements keep them open.
+  const kind = single?.type === 'animation' ? 'animation' : 'element';
+
   return (
     <>
-      <Section title={single ? TYPE_LABEL[single.type] : `${elements.length} elements`}>
+      <div className="element-head">
+        <span className="element-type">
+          {single ? TYPE_LABEL[single.type] : `${elements.length} elements`}
+        </span>
         {single && (
-          <TextField
-            label="Name"
+          <input
+            type="text"
             value={single.name}
-            onChange={(v) => edit((el) => void (el.name = v), 'name')}
+            placeholder="Name (optional)"
+            aria-label="Name"
+            onChange={(e) => edit((el) => void (el.name = e.target.value), 'name')}
           />
         )}
-        <div className="grid2">
-          <NumField
-            label="X"
-            testId="prop-x"
-            value={first.x}
-            onChange={(v) => edit((el) => void (el.x = v), 'x')}
-          />
-          <NumField
-            label="Y"
-            testId="prop-y"
-            value={first.y}
-            onChange={(v) => edit((el) => void (el.y = v), 'y')}
-          />
-          <NumField
-            label="Width"
-            value={first.width}
-            min={1}
-            onChange={(v) => edit((el) => void (el.width = v), 'w')}
-          />
-          <NumField
-            label="Height"
-            value={first.height}
-            min={1}
-            onChange={(v) => edit((el) => void (el.height = v), 'h')}
-          />
-          <NumField
-            label="Rotation°"
-            value={first.rotation}
-            min={-360}
-            max={360}
-            onChange={(v) => edit((el) => void (el.rotation = v), 'rot')}
-          />
-          <NumField
-            label="Opacity"
-            value={first.opacity}
-            min={0}
-            max={1}
-            step={0.05}
-            onChange={(v) => edit((el) => void (el.opacity = v), 'opacity')}
-          />
-        </div>
-        <div className="row">
-          <CheckField
-            label="Locked"
-            value={first.locked}
-            onChange={(v) => edit((el) => void (el.locked = v), 'locked')}
-          />
-          <CheckField
-            label="Hidden"
-            value={first.hidden}
-            onChange={(v) => edit((el) => void (el.hidden = v), 'hidden')}
-          />
-        </div>
-      </Section>
-
-      <Section title="Arrange">
-        <div className="button-grid">
-          {ALIGN.map((a) => (
-            <button
-              key={a.mode}
-              onClick={() => align(a.mode)}
-              title={
-                single
-                  ? `Align ${a.label.toLowerCase()} on the slide`
-                  : `Align ${a.label.toLowerCase()}`
-              }
-            >
-              {a.label}
-            </button>
-          ))}
-        </div>
-        <div className="button-grid">
-          <button onClick={() => dispatch({ type: 'edit.order', to: 'front' }, 'ui')}>
-            To front
-          </button>
-          <button onClick={() => dispatch({ type: 'edit.order', to: 'forward' }, 'ui')}>
-            Forward
-          </button>
-          <button onClick={() => dispatch({ type: 'edit.order', to: 'backward' }, 'ui')}>
-            Backward
-          </button>
-          <button onClick={() => dispatch({ type: 'edit.order', to: 'back' }, 'ui')}>
-            To back
-          </button>
-          <button onClick={() => dispatch({ type: 'edit.duplicate' }, 'ui')}>Duplicate</button>
-          <button className="danger" onClick={() => dispatch({ type: 'edit.delete' }, 'ui')}>
-            Delete
-          </button>
-        </div>
-      </Section>
+      </div>
 
       {single?.type === 'text' && (
         <Section title="Text">
@@ -767,6 +719,112 @@ function ElementProps({ elements }: { elements: SlideElement[] }) {
       )}
 
       {single?.type === 'animation' && <AnimationProps el={single} />}
+
+      {/* What the element is comes first; where it sits is needed less often. */}
+      <Section
+        key={`position:${kind}`}
+        title="Position and size"
+        collapsible
+        id={`position:${kind}`}
+        defaultOpen={kind !== 'animation'}
+      >
+        <div className="grid2">
+          <NumField
+            label="X"
+            testId="prop-x"
+            value={first.x}
+            onChange={(v) => edit((el) => void (el.x = v), 'x')}
+          />
+          <NumField
+            label="Y"
+            testId="prop-y"
+            value={first.y}
+            onChange={(v) => edit((el) => void (el.y = v), 'y')}
+          />
+          <NumField
+            label="Width"
+            value={first.width}
+            min={1}
+            onChange={(v) => edit((el) => void (el.width = v), 'w')}
+          />
+          <NumField
+            label="Height"
+            value={first.height}
+            min={1}
+            onChange={(v) => edit((el) => void (el.height = v), 'h')}
+          />
+          <NumField
+            label="Rotation°"
+            value={first.rotation}
+            min={-360}
+            max={360}
+            onChange={(v) => edit((el) => void (el.rotation = v), 'rot')}
+          />
+          <NumField
+            label="Opacity"
+            slider
+            value={first.opacity}
+            min={0}
+            max={1}
+            step={0.05}
+            onChange={(v) => edit((el) => void (el.opacity = v), 'opacity')}
+          />
+        </div>
+        <div className="row">
+          <CheckField
+            label="Locked"
+            value={first.locked}
+            onChange={(v) => edit((el) => void (el.locked = v), 'locked')}
+          />
+          <CheckField
+            label="Hidden"
+            value={first.hidden}
+            onChange={(v) => edit((el) => void (el.hidden = v), 'hidden')}
+          />
+        </div>
+      </Section>
+
+      <Section
+        key={`arrange:${kind}`}
+        title="Arrange"
+        collapsible
+        id={`arrange:${kind}`}
+        defaultOpen={kind !== 'animation'}
+      >
+        <div className="button-grid">
+          {ALIGN.map((a) => (
+            <button
+              key={a.mode}
+              onClick={() => align(a.mode)}
+              title={
+                single
+                  ? `Align ${a.label.toLowerCase()} on the slide`
+                  : `Align ${a.label.toLowerCase()}`
+              }
+            >
+              {a.label}
+            </button>
+          ))}
+        </div>
+        <div className="button-grid">
+          <button onClick={() => dispatch({ type: 'edit.order', to: 'front' }, 'ui')}>
+            To front
+          </button>
+          <button onClick={() => dispatch({ type: 'edit.order', to: 'forward' }, 'ui')}>
+            Forward
+          </button>
+          <button onClick={() => dispatch({ type: 'edit.order', to: 'backward' }, 'ui')}>
+            Backward
+          </button>
+          <button onClick={() => dispatch({ type: 'edit.order', to: 'back' }, 'ui')}>
+            To back
+          </button>
+          <button onClick={() => dispatch({ type: 'edit.duplicate' }, 'ui')}>Duplicate</button>
+          <button className="danger" onClick={() => dispatch({ type: 'edit.delete' }, 'ui')}>
+            Delete
+          </button>
+        </div>
+      </Section>
     </>
   );
 }

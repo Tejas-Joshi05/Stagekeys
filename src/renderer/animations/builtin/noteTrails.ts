@@ -101,6 +101,12 @@ function draw(
 export const noteTrails = defineAnimation({
   id: 'note-trails',
   name: 'Note trails',
+  summary: 'a piano roll drawn as you play',
+  groups: [
+    { title: 'Bars', params: ['direction', 'speed', 'barWidth', 'velocityShows', 'rounded'] },
+    { title: 'Colour', params: ['colour', 'colourHigh', 'misColour', 'misregister'] },
+    { title: 'Keyboard range', params: ['lowNote', 'highNote'] },
+  ],
   description:
     'A piano roll that draws itself as you play. Each key sends up a bar from its place along the edge for as long as it is held; the bar drifts away when you let go. Low notes left, high notes right.',
   inputs: ['trigger', 'velocity', 'heldNotes'],

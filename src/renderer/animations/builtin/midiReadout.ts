@@ -99,6 +99,12 @@ function layout(
 export const midiReadout = defineAnimation({
   id: 'midi-readout',
   name: 'MIDI readout',
+  summary: 'the two numbers a key sends',
+  groups: [
+    { title: 'What it shows', params: ['show', 'keyLabel', 'velocityLabel', 'bars', 'noteNames'] },
+    { title: 'Type', params: ['fontFamily', 'fontSize', 'fontWeight', 'colour', 'accent'] },
+    { title: 'Brightness', params: ['idle', 'fade'] },
+  ],
   description:
     'Shows what the keyboard really sends: which key and how hard, as two live numbers with ASCII bars. Made for the "it only sends two numbers" moment.',
   inputs: ['trigger', 'velocity', 'heldNotes'],

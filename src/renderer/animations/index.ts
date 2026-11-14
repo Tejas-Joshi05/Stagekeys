@@ -8,6 +8,7 @@ export {
   type BindingSource,
   type FrameInfo,
   type MidiInputKind,
+  type ParamGroup,
   type ParamValues,
   type RegisteredAnimation,
   type Trigger,

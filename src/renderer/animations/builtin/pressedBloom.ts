@@ -94,6 +94,7 @@ const FLOWER_LABELS = FLOWERS as unknown as readonly [FlowerName, ...FlowerName[
 export const pressedBloom = defineAnimation({
   id: 'pressed-bloom',
   name: 'Pressed flowers',
+  summary: 'pressed flowers bloom where you play',
   description:
     'Tejas’s riso pressed flowers bloom in where you play. Each key has its own flower, harder hits bloom bigger, and letting go opens it out. A mapped trigger blooms the whole bouquet.',
   inputs: ['trigger', 'velocity', 'heldNotes', 'sustain', 'pitchBend'],
