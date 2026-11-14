@@ -75,7 +75,7 @@ export async function runControl(root: HTMLElement): Promise<void> {
   // the stage window during a show.
   startAudioInput({
     requestAccess: () => api().requestMicrophone(),
-    mock: info.e2e,
+    mock: info.e2e && !info.fakeMic,
     onProblem: (message) => {
       logger.warn(message);
       notify('warn', message);
@@ -97,6 +97,7 @@ export async function runControl(root: HTMLElement): Promise<void> {
   if (info.e2e || info.isDev) {
     window.__stagekeysMidi = (bytes) => midi.inject(bytes);
     window.__stagekeysAudio = (raw) => audioInput.inject(raw);
+    window.__stagekeysSound = () => audioInput.read().level;
   }
 
   // ── Keyboard, clipboard and menu all become actions ───────────────────────

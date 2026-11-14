@@ -75,6 +75,18 @@ export function responseFor(sensitivity: number): AudioResponse {
 const approach = (current: number, target: number, dt: number, seconds: number): number =>
   seconds <= 0 ? target : current + (target - current) * (1 - Math.exp(-dt / seconds));
 
+/** Amplifies, gates and clips one raw amplitude to 0..1. */
+function shape(amplitude: number, r: AudioResponse): number {
+  const v = (amplitude * r.gain - r.gate) / (1 - r.gate);
+  return v > 0 ? (v < 1 ? v : 1) : 0;
+}
+
+/** Moves a level towards its target: quickly up (attack), slowly down (release). */
+function follow(current: number, target: number, dt: number, r: AudioResponse): number {
+  const next = approach(current, target, dt, target > current ? r.attack : r.release);
+  return next < 0.0005 && target === 0 ? 0 : next;
+}
+
 /** Smooths raw loudness into `levels`, according to the sensitivity. Allocates nothing per step. */
 export class LevelFollower {
   readonly levels: AudioLevels = {
@@ -87,6 +99,9 @@ export class LevelFollower {
   };
   private average = 0;
   private sinceBeat = 1;
+  /** The response for the sensitivity last seen, so it is only worked out when the slider moves. */
+  private response = responseFor(0.5);
+  private responseAt = 0.5;
 
   /** True when every value has settled at zero, so stepping with silence would change nothing. */
   get silent(): boolean {
@@ -95,21 +110,16 @@ export class LevelFollower {
   }
 
   step(raw: RawLevels, dt: number, sensitivity: number): AudioLevels {
-    const r = responseFor(sensitivity);
+    if (sensitivity !== this.responseAt) {
+      this.response = responseFor(sensitivity);
+      this.responseAt = sensitivity;
+    }
+    const r = this.response;
     const l = this.levels;
-    const span = 1 - r.gate;
-    const shape = (amplitude: number): number => {
-      const v = (amplitude * r.gain - r.gate) / span;
-      return v > 0 ? (v < 1 ? v : 1) : 0;
-    };
-    const follow = (current: number, target: number): number => {
-      const next = approach(current, target, dt, target > current ? r.attack : r.release);
-      return next < 0.0005 && target === 0 ? 0 : next;
-    };
-    l.level = follow(l.level, shape(raw.level));
-    l.bass = follow(l.bass, shape(raw.bass));
-    l.mid = follow(l.mid, shape(raw.mid * MID_TILT));
-    l.treble = follow(l.treble, shape(raw.treble * TREBLE_TILT));
+    l.level = follow(l.level, shape(raw.level, r), dt, r);
+    l.bass = follow(l.bass, shape(raw.bass, r), dt, r);
+    l.mid = follow(l.mid, shape(raw.mid * MID_TILT, r), dt, r);
+    l.treble = follow(l.treble, shape(raw.treble * TREBLE_TILT, r), dt, r);
 
     // Beats: the sound jumping well above its own recent average.
     const energy = Math.min(4, raw.level * r.gain);

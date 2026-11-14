@@ -34,6 +34,8 @@ declare global {
     __stagekeysAudio?: (
       raw: { level: number; bass: number; mid: number; treble: number } | null,
     ) => void;
+    /** Test and development hook: the current overall sound level, 0..1. */
+    __stagekeysSound?: () => number;
     __stagekeysStage?: {
       slideIndex: () => number;
       black: () => boolean;
@@ -281,7 +283,7 @@ export async function runStage(root: HTMLElement): Promise<void> {
   // asked for access (that is a dialog); grant it once from the editor beforehand.
   startAudioInput({
     requestAccess: () => api().requestMicrophone(),
-    mock: info.e2e,
+    mock: info.e2e && !info.fakeMic,
     onProblem: (message) => {
       logger.warn(message);
       send({ t: 'notice', level: 'warn', message });

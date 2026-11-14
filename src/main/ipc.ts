@@ -27,6 +27,7 @@ import { getLogDir, log } from './log';
 import { getSettings, updateSettings } from './settings';
 import {
   endShow,
+  fakeMic,
   finishControlClose,
   getControlWindow,
   getShowInit,
@@ -89,9 +90,17 @@ export function registerIpc(): void {
       platform: process.platform,
       isDev: !app.isPackaged,
       e2e: isE2E,
+      fakeMic,
       logDir: getLogDir(),
     }),
-    () => ({ version: '', platform: process.platform, isDev: false, e2e: isE2E, logDir: '' }),
+    () => ({
+      version: '',
+      platform: process.platform,
+      isDev: false,
+      e2e: isE2E,
+      fakeMic: false,
+      logDir: '',
+    }),
   );
 
   handle(
@@ -358,7 +367,7 @@ export function registerIpc(): void {
     z.tuple([]),
     async () => {
       // Only macOS has an app-level microphone switch that Electron can ask about.
-      if (process.platform !== 'darwin') return true;
+      if (fakeMic || process.platform !== 'darwin') return true;
       const status = systemPreferences.getMediaAccessStatus('microphone');
       if (status === 'granted') return true;
       // The system prompt is a dialog, so it is never raised mid-show or in tests.

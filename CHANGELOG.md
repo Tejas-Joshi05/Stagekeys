@@ -23,13 +23,14 @@ Deck schema is now version 2. Decks from 0.1.0 and 0.2.0 open unchanged and are 
 
 ### Fixes
 
+- **Settings were being reset.** Changing one setting through the app (toggling the piano with P, showing the keys picture, teaching the pads) quietly put the rest of that group back to its defaults, so the piano's volume and sound, or the keys picture's corner, could snap back. Only the setting that was changed is now touched.
 - A MIDI connection that was stopped while still starting (a show beginning or ending in that instant) could stay attached, so every key press would fire twice afterwards. It now lets go.
 - Piano: pressing or releasing a key that was sounding more than once could leave one of its notes ringing.
 - MIDI Learn on a knob now makes a continuous mapping for every action that takes a value, not only "Set animation parameter".
 
 ### Not verified
 
-- Sound input has been tested with injected levels and in the built app's interface, but not yet with a real microphone in the packaged app, and not on Windows.
+- Sound input is tested end to end with Chromium's built-in fake microphone (open the device, measure it, hand it from the editor to the stage and back). It has not been tried with a physical microphone in the installed app, where macOS asks for permission, and not on Windows.
 
 ## 0.2.0
 

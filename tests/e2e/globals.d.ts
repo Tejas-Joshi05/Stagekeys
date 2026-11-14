@@ -6,6 +6,7 @@ declare global {
     __stagekeysAudio?: (
       raw: { level: number; bass: number; mid: number; treble: number } | null,
     ) => void;
+    __stagekeysSound?: () => number;
     __stagekeysStage?: {
       slideIndex: () => number;
       black: () => boolean;

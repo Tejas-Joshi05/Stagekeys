@@ -47,6 +47,8 @@ Gotchas:
 - The microphone prompt is a system dialog: `requestMicrophone` never raises it during a show. See `docs/decisions/0005-sound-input.md`.
 - The Mapping tab turns on `controlPicker`: presses choose a control instead of firing mappings. Tests that need a mapping to fire must leave that tab or untick "Press a control to choose it".
 - Riso artwork is imported with `?inline` on purpose (canvas readback from `file://`). Keep it that way.
+- Never validate a settings patch with `.partial()` on a schema that has defaults: zod fills the defaults back in and the patch resets the group. Use `patchOf` in `src/ipc/settings.ts`.
+- `STAGEKEYS_E2E_FAKE_MIC=1` (with `STAGEKEYS_E2E=1`) makes sound input open Chromium's fake microphone, which beeps about once a second, instead of being mocked. `tests/e2e/sound.spec.ts` uses it.
 - E2E hooks: `STAGEKEYS_E2E=1` swaps dialogs for `STAGEKEYS_E2E_*` paths, uses mock MIDI and exposes `window.__stagekeysMidi(bytes)`. Sound input never opens a real device in e2e; feed it with `window.__stagekeysAudio({ level, bass, mid, treble })`.
 
 ## Folder map

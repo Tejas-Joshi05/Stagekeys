@@ -152,6 +152,8 @@ export class AudioInput {
     }
     if (!this.windowActive) {
       this.close();
+      // Nothing reads this window's levels now; do not let the last ones linger.
+      this.follower.reset();
       this.setStatus('paused');
       return;
     }

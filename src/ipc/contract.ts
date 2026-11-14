@@ -17,6 +17,8 @@ export interface AppInfo {
   platform: string;
   isDev: boolean;
   e2e: boolean;
+  /** Tests only: sound input uses Chromium's fake microphone instead of a mock. */
+  fakeMic: boolean;
   logDir: string;
 }
 

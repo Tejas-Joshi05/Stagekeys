@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_SETTINGS, mergeSettings, parseSettings } from './settings';
+import { DEFAULT_SETTINGS, mergeSettings, parseSettings, SettingsPatchSchema } from './settings';
 
 describe('app settings', () => {
   it('loads defaults from nothing, bad JSON or a wrong shape', () => {
@@ -28,6 +28,37 @@ describe('app settings', () => {
     expect(on.keysOverlay).toEqual(DEFAULT_SETTINGS.keysOverlay);
     const bad = mergeSettings(on, { controller: { knobCCs: [1, 2] } });
     expect(bad).toBe(on);
+  });
+
+  it('a patch carries only what was changed, never defaults for the rest', () => {
+    // Main validates every patch with this schema before merging it. If validation
+    // filled in defaults, toggling the piano would reset its volume and sound.
+    const toggle = SettingsPatchSchema.parse({ piano: { enabled: true } });
+    expect(toggle).toEqual({ piano: { enabled: true } });
+    const custom = mergeSettings(DEFAULT_SETTINGS, {
+      piano: { volume: 0.2, sound: 'grand' },
+      keysOverlay: { corner: 'top-left' },
+      audioInput: { enabled: true },
+    });
+    const after = mergeSettings(
+      custom,
+      SettingsPatchSchema.parse({
+        piano: { enabled: true },
+        keysOverlay: { stage: true },
+        audioInput: { sensitivity: 1 },
+      }),
+    );
+    expect(after.piano).toEqual({ ...custom.piano, enabled: true });
+    expect(after.keysOverlay).toEqual({ ...custom.keysOverlay, stage: true });
+    expect(after.audioInput).toEqual({ enabled: true, sensitivity: 1, deviceId: '' });
+    expect(after.controller).toEqual(custom.controller);
+  });
+
+  it('refuses patches with wrong values or unknown fields', () => {
+    expect(SettingsPatchSchema.safeParse({ piano: { volume: 3 } }).success).toBe(false);
+    expect(SettingsPatchSchema.safeParse({ piano: { loud: true } }).success).toBe(false);
+    expect(SettingsPatchSchema.safeParse({ controller: { padNotes: [1] } }).success).toBe(false);
+    expect(SettingsPatchSchema.safeParse({}).success).toBe(true);
   });
 
   it('keeps sound input off by default and its sensitivity inside 0..1', () => {

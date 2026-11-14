@@ -3,7 +3,7 @@ import path from 'node:path';
 import { registerIpc } from './ipc';
 import { initLog, log } from './log';
 import { buildMenu } from './menu';
-import { createControlWindow, getControlWindow } from './windows';
+import { createControlWindow, fakeMic, getControlWindow } from './windows';
 
 // Tests point the app at a throwaway profile so they never touch real decks or drafts.
 const userDataOverride = process.env.STAGEKEYS_USER_DATA;
@@ -19,6 +19,10 @@ process.on('unhandledRejection', (reason) => {
 
 // The piano must sound on the first key press, without waiting for a click.
 app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
+if (fakeMic) {
+  app.commandLine.appendSwitch('use-fake-device-for-media-stream');
+  app.commandLine.appendSwitch('use-fake-ui-for-media-stream');
+}
 
 // Chromium asks for `midiSysex` even for plain Web MIDI access, so both are needed for MIDI to work.
 const ALLOWED_PERMISSIONS = new Set(['midi', 'midiSysex', 'local-fonts']);

@@ -70,13 +70,34 @@ export type ControllerProfile = z.infer<typeof ControllerSchema>;
 export type AudioInputSettings = z.infer<typeof AudioInputSchema>;
 
 /** A change to one or more groups. Each group given is merged over the current one. */
-export const SettingsPatchSchema = z.object({
-  piano: PianoSettingsSchema.partial().optional(),
-  keysOverlay: KeysOverlaySchema.partial().optional(),
-  controller: ControllerSchema.partial().optional(),
-  audioInput: AudioInputSchema.partial().optional(),
-});
-export type SettingsPatch = z.infer<typeof SettingsPatchSchema>;
+export interface SettingsPatch {
+  piano?: Partial<PianoSettings>;
+  keysOverlay?: Partial<KeysOverlaySettings>;
+  controller?: Partial<ControllerProfile>;
+  audioInput?: Partial<AudioInputSettings>;
+}
+
+/**
+ * The same fields as a settings group, all optional and WITHOUT their
+ * defaults. Plain `.partial()` is not enough: a defaulted field that is left
+ * out would be filled in with its default, so a patch of `{ enabled: true }`
+ * would quietly reset every other setting in the group.
+ */
+function patchOf(group: z.ZodObject): z.ZodObject {
+  const shape: Record<string, z.ZodType> = {};
+  for (const [key, field] of Object.entries(group.shape)) {
+    const bare = field instanceof z.ZodDefault ? field.unwrap() : field;
+    shape[key] = (bare as z.ZodType).optional();
+  }
+  return z.strictObject(shape);
+}
+
+export const SettingsPatchSchema: z.ZodType<SettingsPatch> = z.object({
+  piano: patchOf(PianoSettingsSchema).optional(),
+  keysOverlay: patchOf(KeysOverlaySchema).optional(),
+  controller: patchOf(ControllerSchema).optional(),
+  audioInput: patchOf(AudioInputSchema).optional(),
+}) as unknown as z.ZodType<SettingsPatch>;
 
 export const DEFAULT_SETTINGS: AppSettings = SettingsSchema.parse({});
 

@@ -4,6 +4,12 @@ import { CHANNELS, type ShowInit, type ShowStart } from '../ipc/contract';
 import { log } from './log';
 
 export const isE2E = process.env.STAGEKEYS_E2E === '1';
+/**
+ * Tests only: sound input opens Chromium's built-in fake microphone (a beeping
+ * tone) instead of being mocked, so the real capture path is exercised without
+ * touching this machine's microphone or raising the system prompt.
+ */
+export const fakeMic = isE2E && process.env.STAGEKEYS_E2E_FAKE_MIC === '1';
 
 interface ShowState {
   init: ShowInit;
