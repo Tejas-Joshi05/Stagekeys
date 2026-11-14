@@ -42,10 +42,12 @@ Gotchas:
 - TypeScript is pinned to 6.0.x because typescript-eslint does not support 7 yet.
 - Never reuse a `<canvas>` after destroying its Pixi renderer; it freezes the window. Mount a new canvas.
 - Zustand selectors must return stable references. Wrap selectors that build arrays in `useShallow`.
-- App settings (piano, keys picture, MPK layout) live in `settings.json` via main, not in decks. Change them with `updateSettings` from `shared/settings.ts`.
+- App settings (piano, keys picture, MPK layout, sound input) live in `settings.json` via main, not in decks. Change them with `updateSettings` from `shared/settings.ts`.
+- Sound input: render loops read `audioInput.read()` (one measurement per frame, same object every time). Never set React state from it per frame; `AudioMeter` draws on a timer. Set the sensitivity with `setAudioSensitivity`, which applies at once and saves after a pause, so a knob does not write the settings file per message.
+- The microphone prompt is a system dialog: `requestMicrophone` never raises it during a show. See `docs/decisions/0005-sound-input.md`.
 - The Mapping tab turns on `controlPicker`: presses choose a control instead of firing mappings. Tests that need a mapping to fire must leave that tab or untick "Press a control to choose it".
 - Riso artwork is imported with `?inline` on purpose (canvas readback from `file://`). Keep it that way.
-- E2E hooks: `STAGEKEYS_E2E=1` swaps dialogs for `STAGEKEYS_E2E_*` paths, uses mock MIDI and exposes `window.__stagekeysMidi(bytes)`.
+- E2E hooks: `STAGEKEYS_E2E=1` swaps dialogs for `STAGEKEYS_E2E_*` paths, uses mock MIDI and exposes `window.__stagekeysMidi(bytes)`. Sound input never opens a real device in e2e; feed it with `window.__stagekeysAudio({ level, bass, mid, treble })`.
 
 ## Folder map
 
@@ -62,7 +64,7 @@ src/renderer/
   editor/        slide list, canvas tools, properties panel, notes
   render/        PixiJS slide renderer shared by editor, stage and export
   animations/    registry, host, built-ins (one file each), riso art + glyph atlas
-  audio/         optional piano (Web Audio), fed from the MIDI bus
+  audio/         optional piano (Web Audio), and sound input measured for animations
   presenter/     show engine, presenter view, transitions, rehearsal
   shared/        small utilities, settings store
 tests/e2e/       Playwright Electron smoke tests

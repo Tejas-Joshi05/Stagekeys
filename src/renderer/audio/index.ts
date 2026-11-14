@@ -1,8 +1,29 @@
 import type { MidiBus } from '../midi';
-import { useSettings } from '../shared/settings';
+import { updateSettings, useSettings } from '../shared/settings';
+import { audioInput, type AudioInputOptions } from './input';
 import { PianoEngine } from './piano';
 
 export { decayFor, midiToHz, PianoEngine, velocityGain } from './piano';
+export {
+  AUDIO_STATUS_TEXT,
+  AudioInput,
+  audioInput,
+  listAudioInputs,
+  useAudioInputStore,
+  type AudioDevice,
+  type AudioInputStatus,
+} from './input';
+export {
+  bandsFromSpectrum,
+  LevelFollower,
+  responseFor,
+  rms,
+  SILENT_RAW,
+  type AudioLevels,
+  type AudioResponse,
+  type RawLevels,
+} from './levels';
+export { AudioMeter } from './AudioMeter';
 
 export interface PianoOptions {
   bus: MidiBus;
@@ -42,4 +63,40 @@ export function startPiano(options: PianoOptions): () => void {
     unsubscribeSettings();
     engine.dispose();
   };
+}
+
+/**
+ * Follows the sound-input settings for this window. Returns a stop function.
+ * The stage and the editor each call this; only the one that is "active"
+ * holds the device.
+ */
+export function startAudioInput(options: AudioInputOptions): () => void {
+  audioInput.configure(useSettings.getState().audioInput);
+  audioInput.start(options);
+  const unsubscribe = useSettings.subscribe((s, prev) => {
+    if (s.audioInput !== prev.audioInput) audioInput.configure(s.audioInput);
+  });
+  return () => {
+    unsubscribe();
+    if (saveTimer) clearTimeout(saveTimer);
+    saveTimer = null;
+    audioInput.dispose();
+  };
+}
+
+let saveTimer: ReturnType<typeof setTimeout> | null = null;
+
+/**
+ * Sets the sensitivity (0 stiffest .. 1 most sensitive). It takes effect at
+ * once; saving is held back briefly, so a knob sweeping through a hundred
+ * values writes the settings file once and causes one React update, not a hundred.
+ */
+export function setAudioSensitivity(value: number): void {
+  if (!Number.isFinite(value)) return;
+  audioInput.setSensitivity(value);
+  if (saveTimer) clearTimeout(saveTimer);
+  saveTimer = setTimeout(() => {
+    saveTimer = null;
+    updateSettings({ audioInput: { sensitivity: audioInput.sensitivity } });
+  }, 250);
 }

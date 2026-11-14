@@ -12,6 +12,8 @@ mac:
   target: dir
   # Not code-signed with a developer certificate; ad-hoc signed by scripts/install-mac.sh.
   identity: null
+  extendInfo:
+    NSMicrophoneUsageDescription: Stagekeys listens to sound input so animations can react to it. Nothing is recorded.
 win:
   icon: build/icon.png
   target: dir

@@ -72,6 +72,7 @@ export function buildMenu(): void {
         action('Toggle FPS Overlay', 'view.toggleFps', 'CmdOrCtrl+Shift+F'),
         action('Show or Hide Keys Picture', 'view.toggleKeys', 'CmdOrCtrl+Shift+K'),
         action('Piano Sound On or Off', 'audio.togglePiano', 'CmdOrCtrl+Shift+P'),
+        action('Sound Input On or Off', 'audio.toggleInput', 'CmdOrCtrl+Shift+L'),
       ],
     },
     {

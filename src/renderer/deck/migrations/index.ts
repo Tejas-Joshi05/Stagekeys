@@ -10,11 +10,12 @@
  * ../schema.ts, and add a fixture plus a test.
  */
 import { CURRENT_SCHEMA_VERSION } from '../schema';
+import { audioBindings } from './001-audio-bindings';
 
 export type Migration = (deck: Record<string, unknown>) => Record<string, unknown>;
 
 /** Keyed by the version being upgraded FROM. Version 1 is the first released schema. */
-export const migrations: Readonly<Record<number, Migration>> = {};
+export const migrations: Readonly<Record<number, Migration>> = { 1: audioBindings };
 
 export class DeckVersionError extends Error {
   constructor(

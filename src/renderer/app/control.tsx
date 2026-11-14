@@ -1,7 +1,7 @@
 import { createRoot } from 'react-dom/client';
 import { actionForKey, actions, ActionSchema, dispatch } from '../actions';
 import { preloadArt } from '../animations';
-import { startPiano } from '../audio';
+import { audioInput, startAudioInput, startPiano } from '../audio';
 import { autosave, discardPristineDraft, flushSaves, getCurrentSlide, useDeckStore } from '../deck';
 import { controlPicker, learnSession, startMappingEngine } from '../mapping';
 import { midi, MockMidiSource, WebMidiSource, type MidiSource } from '../midi';
@@ -71,16 +71,33 @@ export async function runControl(root: HTMLElement): Promise<void> {
   });
   // After the mapping engine, so keys that trigger a mapping can stay silent.
   startPiano({ bus: midi.bus, isActive: () => !usePresenterStore.getState().active });
+  // Sound input for audio-reactive animations: this window listens while editing,
+  // the stage window during a show.
+  startAudioInput({
+    requestAccess: () => api().requestMicrophone(),
+    mock: info.e2e,
+    onProblem: (message) => {
+      logger.warn(message);
+      notify('warn', message);
+    },
+  });
   initShowBridge({
     onShowStarting: () => {
       learnSession.cancel();
       controlPicker.enabled = false;
       midi.stop();
+      audioInput.setWindowActive(false);
     },
-    onShowEnded: () => void midi.start(makeSource()),
+    onShowEnded: () => {
+      audioInput.setWindowActive(true);
+      void midi.start(makeSource());
+    },
   });
   void midi.start(makeSource());
-  if (info.e2e || info.isDev) window.__stagekeysMidi = (bytes) => midi.inject(bytes);
+  if (info.e2e || info.isDev) {
+    window.__stagekeysMidi = (bytes) => midi.inject(bytes);
+    window.__stagekeysAudio = (raw) => audioInput.inject(raw);
+  }
 
   // ── Keyboard, clipboard and menu all become actions ───────────────────────
   window.addEventListener('keydown', (e) => {

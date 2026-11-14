@@ -17,6 +17,7 @@ import { createAnimation, createEmptyDeck, createShape, createText } from './fac
 import { History } from './history';
 import { parseDeck, serialiseDeck } from './load';
 import { DeckVersionError, migrateDeck, migrations, type Migration } from './migrations';
+import v1Fixture from './migrations/fixtures/v1-deck.json';
 import { CURRENT_SCHEMA_VERSION, DeckSchema, type Deck } from './schema';
 import { openSession, redo, sealHistory, undo, useDeckStore } from './store';
 
@@ -82,6 +83,53 @@ describe('deck schema', () => {
     const result = parseDeck(JSON.stringify(future));
     expect(result).toMatchObject({ ok: false, kind: 'newer' });
     if (!result.ok) expect(result.error).toMatch(/newer version/);
+  });
+});
+
+describe('migration 001: version 1 decks open as version 2', () => {
+  it('opens the version 1 fixture unchanged apart from the version', () => {
+    const result = parseDeck(JSON.stringify(v1Fixture));
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.migratedFrom).toBe(1);
+    expect(result.deck.schemaVersion).toBe(2);
+    expect(result.deck.meta.title).toBe('Version 1 fixture');
+    expect(result.deck.mappings).toHaveLength(1);
+    const garden = result.deck.slides[0]?.elements[1];
+    expect(garden?.type).toBe('animation');
+    if (garden?.type !== 'animation') return;
+    expect(garden.params).toEqual({ plant: 'maple', print: 'glow on dark' });
+    expect(garden.listen).toEqual({ mode: 'range', from: 48, to: 72 });
+    expect(garden.bindings.map((b) => b.source)).toEqual(['cc', 'velocity']);
+  });
+
+  it('accepts sound-input bindings and sound actions in version 2', () => {
+    const deck = createEmptyDeck();
+    const el = createAnimation('ascii-vignette', 'Vignette', 0, 0);
+    el.bindings.push({
+      param: 'opening',
+      source: 'audioBass',
+      controller: 1,
+      curve: 'linear',
+      min: 0.3,
+      max: 0.9,
+    });
+    deck.slides[0]?.elements.push(el);
+    deck.mappings.push({
+      id: 'map_sens',
+      name: '',
+      enabled: true,
+      trigger: { kind: 'ccValue', controller: 70 },
+      filters: {},
+      action: { type: 'audio.setSensitivity', value: 0.5 },
+      curve: 'linear',
+      min: 0,
+      max: 1,
+    });
+    const result = parseDeck(serialiseDeck(deck));
+    expect(result.ok).toBe(true);
+    // A version 1 app must not be handed such a deck as if it were version 1.
+    expect(JSON.parse(serialiseDeck(deck))).toMatchObject({ schemaVersion: 2 });
   });
 });
 

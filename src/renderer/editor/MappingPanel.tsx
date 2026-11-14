@@ -49,7 +49,7 @@ type MappableType = (typeof MAPPABLE_ACTIONS)[number];
 const ZONE_COLOURS = ['#d8a4af', '#c1bc77', '#afb8cd', '#ccc3d1', '#e3b57a', '#8d8b4c'];
 
 /** Actions that need a continuous value: they suit knobs and wheels. */
-const CONTINUOUS: readonly MappableType[] = ['anim.setParam'];
+const CONTINUOUS: readonly MappableType[] = ['anim.setParam', 'audio.setSensitivity'];
 
 /** The order actions are offered in, most used first. */
 const ACTION_ORDER: readonly MappableType[] = [
@@ -61,6 +61,8 @@ const ACTION_ORDER: readonly MappableType[] = [
   'nav.goto',
   'show.blackToggle',
   'audio.togglePiano',
+  'audio.toggleInput',
+  'audio.setSensitivity',
   'view.toggleKeys',
   'show.panic',
 ];
@@ -108,6 +110,8 @@ function defaultAction(type: MappableType, deck: Deck, targets: AnimationTarget[
         value: first?.default ?? 0,
       };
     }
+    case 'audio.setSensitivity':
+      return { type, value: 0.5 };
     default:
       return { type };
   }
@@ -544,7 +548,8 @@ function ControlEditor({
   };
 
   const offered = isKnobLike(control)
-    ? (['anim.setParam', ...ACTION_ORDER.filter((a) => a !== 'anim.setParam')] as MappableType[])
+    ? // Knobs and wheels: the actions that take a value come first.
+      [...CONTINUOUS, ...ACTION_ORDER.filter((a) => !CONTINUOUS.includes(a))]
     : ACTION_ORDER.filter((a) => a !== 'anim.setParam' || control.kind !== 'sustain');
 
   return (

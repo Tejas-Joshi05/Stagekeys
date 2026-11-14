@@ -67,6 +67,10 @@ export const ActionSchema = z.discriminatedUnion('type', [
   plain('view.toggleKeys'),
   // Sound
   plain('audio.togglePiano'),
+  /** Sound input (microphone or line in) for audio-reactive animations. */
+  plain('audio.toggleInput'),
+  /** 0 = stiffest .. 1 = most sensitive. */
+  z.object({ type: z.literal('audio.setSensitivity'), value: z.number().min(0).max(1) }),
 ]);
 
 export type Action = z.infer<typeof ActionSchema>;
@@ -87,6 +91,8 @@ export const MAPPABLE_ACTIONS = [
   'anim.trigger',
   'anim.setParam',
   'audio.togglePiano',
+  'audio.toggleInput',
+  'audio.setSensitivity',
   'view.toggleKeys',
 ] as const satisfies readonly ActionType[];
 
@@ -100,5 +106,7 @@ export const ACTION_LABELS: Record<(typeof MAPPABLE_ACTIONS)[number], string> = 
   'anim.trigger': 'Trigger animation',
   'anim.setParam': 'Set animation parameter',
   'audio.togglePiano': 'Piano sound on/off',
+  'audio.toggleInput': 'Sound input on/off',
+  'audio.setSensitivity': 'Set sound sensitivity',
   'view.toggleKeys': 'Show/hide keys picture',
 };

@@ -1,7 +1,14 @@
 import { Container } from 'pixi.js';
+import { audioInput, type AudioLevels } from '../audio';
 import { applyCurve } from '../mapping';
 import type { MidiInputState, MidiMessage } from '../midi';
-import type { AnimationInputs, ParamValues, RegisteredAnimation, Trigger } from './define';
+import type {
+  AnimationInputs,
+  BindingSource,
+  ParamValues,
+  RegisteredAnimation,
+  Trigger,
+} from './define';
 
 /** The parts of an animation element the host needs. Structural, so it does not depend on the deck schema. */
 export interface AnimationConfig {
@@ -11,7 +18,7 @@ export interface AnimationConfig {
   params: Record<string, unknown>;
   bindings: readonly {
     param: string;
-    source: 'velocity' | 'cc' | 'pitchBend' | 'note';
+    source: BindingSource;
     controller: number;
     curve: 'linear' | 'exponential' | 'logarithmic';
     min: number;
@@ -183,7 +190,7 @@ export class AnimationInstance {
     }
   }
 
-  private resolveParams(input: MidiInputState): ParamValues {
+  private resolveParams(input: MidiInputState, audio: AudioLevels): ParamValues {
     const bindings = this.config.bindings;
     if (bindings.length === 0 && this.overrides.size === 0) return this.baseParams;
     const out: ParamValues = { ...this.baseParams };
@@ -204,6 +211,21 @@ export class AnimationInstance {
         case 'note':
           t = Math.max(0, input.lastNote) / 127;
           break;
+        case 'audioLevel':
+          t = audio.level;
+          break;
+        case 'audioBass':
+          t = audio.bass;
+          break;
+        case 'audioMid':
+          t = audio.mid;
+          break;
+        case 'audioTreble':
+          t = audio.treble;
+          break;
+        case 'audioBeat':
+          t = audio.beat;
+          break;
       }
       out[b.param] = b.min + (b.max - b.min) * applyCurve(b.curve, t);
     }
@@ -220,14 +242,17 @@ export class AnimationInstance {
     const step = Math.min(Math.max(dt, 0), MAX_DT);
     this.time += step;
     this.frame += 1;
+    // One measurement per frame however many animations ask; all zero when sound input is off.
+    const audio = audioInput.read();
     const inputs: AnimationInputs<ParamValues> = {
-      params: this.resolveParams(input),
+      params: this.resolveParams(input, audio),
       triggers,
       releases,
       held: input.held,
       cc: (controller) => (input.cc[controller] ?? 0) / 127,
       pitchBend: input.pitchBend,
       sustain: input.sustain,
+      audio,
     };
     try {
       this.def.update(this.state, { time: this.time, dt: step, frame: this.frame }, inputs);

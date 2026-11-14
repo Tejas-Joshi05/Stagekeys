@@ -255,6 +255,11 @@ const SOURCE_OPTIONS: { value: Binding['source']; label: string }[] = [
   { value: 'cc', label: 'Knob / CC' },
   { value: 'pitchBend', label: 'Pitch bend' },
   { value: 'note', label: 'Note (pitch)' },
+  { value: 'audioLevel', label: 'Sound: loudness' },
+  { value: 'audioBass', label: 'Sound: bass' },
+  { value: 'audioMid', label: 'Sound: middle' },
+  { value: 'audioTreble', label: 'Sound: treble' },
+  { value: 'audioBeat', label: 'Sound: beats' },
 ];
 
 const CURVE_OPTIONS: { value: Binding['curve']; label: string }[] = [
@@ -426,7 +431,7 @@ function AnimationProps({ el }: { el: AnimationElement }) {
       </Section>
 
       <Section
-        title="MIDI bindings"
+        title="MIDI and sound bindings"
         actions={
           bindable.length > 0 && (
             <button
@@ -455,7 +460,8 @@ function AnimationProps({ el }: { el: AnimationElement }) {
       >
         {el.bindings.length === 0 && (
           <p className="hint">
-            Bind a parameter to velocity, a knob or pitch bend so it changes as you play.
+            Bind a parameter to velocity, a knob, pitch bend or the sound input so it changes as you
+            play or speak.
           </p>
         )}
         {el.bindings.map((b, i) => {

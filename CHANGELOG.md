@@ -2,7 +2,36 @@
 
 Stagekeys follows semantic versioning. Deck files carry their own `schemaVersion`.
 
-## 0.2.0 (unreleased)
+## 0.3.0 (unreleased)
+
+Deck schema is now version 2. Decks from 0.1.0 and 0.2.0 open unchanged and are saved as version 2; a deck saved by 0.3.0 does not open in older versions.
+
+### Sound input
+
+- **Sound input**: animations can react to a microphone or line input. Off by default; switch it on in the MIDI & sound tab, with the toolbar button, ⇧⌘L, L during a show, or a mapped key. The sound is only measured, never recorded. Choose the input device in the same tab.
+- **Sensitivity slider**, from "as stiff as it gets" (only loud sound moves anything, slowly) to "as sensitive as it gets" (a whisper fills the meter, instantly). It changes gain, noise gate, attack, release and how easily beats fire together. Map a knob to **Set sound sensitivity** to ride it live.
+- A live meter (overall, low, mid, high and a beat lamp) in the MIDI & sound tab and in the presenter view, which also says if the input is blocked or missing.
+- Any numeric animation setting can follow the sound: bind it to loudness, bass, middle, treble or beats under "MIDI and sound bindings". For example, bind the garden's Wind to loudness.
+
+### New animations
+
+- **ASCII vignette**: a frame of ASCII ink around the slide, in two inks like the garden. Eleven shapes for the opening (oval, circle, box, diamond, hexagon, triangle, star, heart, letterbox, curtains, corners), six glyph sets, and it can fill the middle instead of the edge. It answers sound and MIDI differently:
+  - sound moves the whole frame in the main ink: breathe, close in, open up, shiver or equaliser (bass from below, treble from above), plus a kick on beats;
+  - keys leave local marks in a third ink: a bite where the key sits (held keys keep their bite, harder hits bite deeper), a ripple, a flash or an iris;
+  - pitch bend slides the opening sideways and the mod wheel makes the edge restless.
+- **MIDI readout**: the two numbers a key really sends, "which key" and "how hard", live, with ASCII bars. It can also show the raw bytes. Made for the "it only sends two numbers" moment.
+
+### Fixes
+
+- A MIDI connection that was stopped while still starting (a show beginning or ending in that instant) could stay attached, so every key press would fire twice afterwards. It now lets go.
+- Piano: pressing or releasing a key that was sounding more than once could leave one of its notes ringing.
+- MIDI Learn on a knob now makes a continuous mapping for every action that takes a value, not only "Set animation parameter".
+
+### Not verified
+
+- Sound input has been tested with injected levels and in the built app's interface, but not yet with a real microphone in the packaged app, and not on Windows.
+
+## 0.2.0
 
 Deck schema stays at version 1; decks from 0.1.0 open unchanged.
 

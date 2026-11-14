@@ -175,6 +175,24 @@ describe('curves and value-carrying actions', () => {
     expect(actionFor({ mapping: param, value: 1, scope: 'global' })).toMatchObject({ value: 10 });
   });
 
+  it('feeds a knob into the sound sensitivity, kept inside 0..1', () => {
+    const knob = mapping({
+      trigger: { kind: 'ccValue', controller: 70 },
+      action: { type: 'audio.setSensitivity', value: 0.5 },
+    });
+    expect(actionFor({ mapping: knob, value: 0, scope: 'global' })).toEqual({
+      type: 'audio.setSensitivity',
+      value: 0,
+    });
+    expect(actionFor({ mapping: knob, value: 1, scope: 'global' })).toMatchObject({ value: 1 });
+    const wide = mapping({ ...knob, min: -2, max: 5 });
+    expect(actionFor({ mapping: wide, value: 1, scope: 'global' })).toMatchObject({ value: 1 });
+    expect(actionFor({ mapping: wide, value: 0, scope: 'global' })).toMatchObject({ value: 0 });
+    expect(
+      learnFromMessage(cc(70, 5), { type: 'audio.setSensitivity', value: 0.5 })?.trigger,
+    ).toEqual({ kind: 'ccValue', controller: 70 });
+  });
+
   it('leaves a fixed value alone for triggers that carry no value', () => {
     const m = mapping({
       trigger: { kind: 'sustainDown' },

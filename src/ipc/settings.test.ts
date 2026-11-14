@@ -29,4 +29,15 @@ describe('app settings', () => {
     const bad = mergeSettings(on, { controller: { knobCCs: [1, 2] } });
     expect(bad).toBe(on);
   });
+
+  it('keeps sound input off by default and its sensitivity inside 0..1', () => {
+    expect(DEFAULT_SETTINGS.audioInput).toEqual({ enabled: false, sensitivity: 0.5, deviceId: '' });
+    const old = parseSettings(JSON.stringify({ piano: { enabled: true } }));
+    expect(old.audioInput).toEqual(DEFAULT_SETTINGS.audioInput);
+    const stiff = mergeSettings(DEFAULT_SETTINGS, { audioInput: { sensitivity: 0 } });
+    expect(stiff.audioInput.sensitivity).toBe(0);
+    expect(mergeSettings(stiff, { audioInput: { sensitivity: 1.5 } })).toBe(stiff);
+    const damaged = parseSettings(JSON.stringify({ audioInput: { sensitivity: 'loud' } }));
+    expect(damaged.audioInput).toEqual(DEFAULT_SETTINGS.audioInput);
+  });
 });

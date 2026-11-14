@@ -1,6 +1,6 @@
 # Stagekeys architecture
 
-Status: **approved and implemented** (2026-11-13, updated 2026-11-14 for 0.2.0). Keep this file up to date when the design moves.
+Status: **approved and implemented** (2026-11-13, updated 2026-11-14 for 0.3.0). Keep this file up to date when the design moves.
 
 Stagekeys is a slide editor and live presenter driven by a MIDI keyboard. It is used live on stage, so every design choice below prefers reliability over features.
 
@@ -66,7 +66,7 @@ src/
     editor/             slide list, canvas tools, properties panel, notes
     render/             PixiJS slide renderer shared by editor, thumbnails, stage, export
     animations/         registry, host, built-ins (one file each), riso artwork and glyph atlas
-    audio/              the optional piano (Web Audio voices), fed from the MIDI bus
+    audio/              the optional piano (Web Audio voices), and sound input measured for animations
     presenter/          show engine, presenter view, transitions, rehearsal
     shared/             small utilities, the settings store
 tests/
@@ -118,7 +118,7 @@ Meta     { title, created, updated, canvas: { width: 1920, height: 1080 } }
 Slide    { id, name, background, elements[], notes, transition, mappings[] }
 Element  = Text | Shape(rect | ellipse | line) | Image | Animation
            common: { id, name, x, y, width, height, rotation, opacity, locked, hidden }
-Animation element { animationId, params, bindings[] }   // bindings: MIDI source -> param, with curve and range
+Animation element { animationId, params, bindings[] }   // bindings: MIDI or sound source -> param, with curve and range
 Mapping  { id, trigger, filters, action, curve?, enabled }
 Zone     { id, name, colour, fromNote, toNote }
 Asset    { id, file, mime, width, height }
@@ -160,6 +160,8 @@ Web MIDI -> parser -> event bus (ring buffer, no React) -> mapping engine -> dis
 
 **Piano**: `audio/` subscribes to the bus after the mapping engine, so it can tell keys that triggered a mapping and keep them silent. It runs in whichever window owns MIDI, so it never doubles.
 
+**Sound input**: `audio/input.ts` opens a microphone or line input into an analyser (never to the speakers, never recorded). `audio/levels.ts` shapes the raw loudness into level, bass, mid, treble and beat, each 0..1, according to one sensitivity setting. Render loops call `audioInput.read()`, which measures at most once per frame and returns the same mutable object; nothing renders in React per frame. Only the window that owns the show listens: the editor while editing, the stage during a show. See `docs/decisions/0005-sound-input.md`.
+
 **Mapping resolution**: a message is matched against the current slide's mappings first, then global ones. If a per-slide mapping matches, global mappings for that same trigger are skipped.
 
 ## Rendering
@@ -181,7 +183,7 @@ Each animation is one file exporting a definition, registered in one list:
 defineAnimation({
   id, name, description,
   params: z.object({...}),          // defaults live in the schema; the properties panel is generated from it
-  inputs: ['noteOn', 'velocity'],   // which MIDI inputs it reacts to
+  inputs: ['trigger', 'audio'],     // what it reacts to: MIDI inputs and/or sound
   setup(ctx)   -> state,            // ctx gives a root container and tracked resource helpers
   update(state, frame, inputs),
   teardown(state),
@@ -190,11 +192,13 @@ defineAnimation({
 
 The riso animations (ASCII garden, Pressed flowers) use artwork bundled inline (`animations/assets/`, decoded at startup by `preloadArt`). The ASCII garden samples an ink-density map into a small canvas about 30 times a second and draws one GPU particle per glyph cell from a shared glyph atlas, two particle containers for the two inks. Shared artwork textures live for the whole app, so no instance can destroy a texture another is drawing with.
 
+The ASCII vignette uses the same glyph particles for a frame around the slide. It is the model for reacting to two sources differently: sound (`inputs.audio`) moves the whole shape, while keys leave local marks in their own ink. It only writes the cells whose glyph changed.
+
 The animation host owns each instance's root container and destroys it with all children on slide change, whether or not `teardown` behaved. `setup`, `update` and `teardown` are each wrapped: an error is logged, that instance is switched off, and the show carries on.
 
 ## Settings
 
-App settings (piano, keys picture, controller profile) live in `settings.json` in the app data folder, owned by main, written atomically, and broadcast to both windows on every change. They are about the machine and the controller, not the talk, so they are not in decks. See `docs/decisions/0004-app-settings-and-controller-profile.md`.
+App settings (piano, keys picture, controller profile, sound input) live in `settings.json` in the app data folder, owned by main, written atomically, and broadcast to both windows on every change. They are about the machine and the controller, not the talk, so they are not in decks. See `docs/decisions/0004-app-settings-and-controller-profile.md`.
 
 ## Show-safe mode
 
@@ -208,11 +212,11 @@ App settings (piano, keys picture, controller profile) live in `settings.json` i
 
 ## Security
 
-`contextIsolation: true`, `sandbox: true`, `nodeIntegration: false`, a strict CSP, navigation and new windows denied, and a permission handler that allows only MIDI and local fonts. Every IPC payload is validated with zod in main. The preload exposes a small typed API and nothing else.
+`contextIsolation: true`, `sandbox: true`, `nodeIntegration: false`, a strict CSP, navigation and new windows denied, and a permission handler that allows only MIDI, local fonts and audio capture (never video). Every IPC payload is validated with zod in main. The preload exposes a small typed API and nothing else.
 
 ## Extension points (not built in v1)
 
-- `MidiSource` is the template for other inputs: OSC in, audio analysis and webcam would each feed the same bus and input state.
+- `MidiSource` is the template for other inputs: OSC in and webcam would each feed the same bus and input state. (Audio analysis is built: see Sound input above. It has its own levels object rather than going through the MIDI bus, because it is continuous, not a stream of events.)
 - An `OutputSink` interface is reserved for MIDI out and OSC out, driven by the same actions.
 - New element types are a new member of the `Element` union plus a renderer entry.
 

@@ -21,6 +21,18 @@ export const PianoSettingsSchema = z.object({
   pads: z.boolean().default(false),
 });
 
+/**
+ * Sound coming in (a microphone or line input), which animations can react to.
+ * Nothing is recorded or sent anywhere: it is only measured, frame by frame.
+ */
+export const AudioInputSchema = z.object({
+  enabled: z.boolean().default(false),
+  /** 0 = stiffest (only loud sound moves things, slowly) .. 1 = most sensitive (twitches at a whisper). */
+  sensitivity: z.number().min(0).max(1).default(0.5),
+  /** Input device id from the browser; empty means the system default. */
+  deviceId: z.string().max(512).default(''),
+});
+
 export const KeysOverlaySchema = z.object({
   /** The small controller picture in the editor and presenter view. */
   control: z.boolean().default(true),
@@ -48,18 +60,21 @@ export const SettingsSchema = z.object({
   piano: PianoSettingsSchema.default(PianoSettingsSchema.parse({})),
   keysOverlay: KeysOverlaySchema.default(KeysOverlaySchema.parse({})),
   controller: ControllerSchema.default(ControllerSchema.parse({})),
+  audioInput: AudioInputSchema.default(AudioInputSchema.parse({})),
 });
 
 export type AppSettings = z.infer<typeof SettingsSchema>;
 export type PianoSettings = z.infer<typeof PianoSettingsSchema>;
 export type KeysOverlaySettings = z.infer<typeof KeysOverlaySchema>;
 export type ControllerProfile = z.infer<typeof ControllerSchema>;
+export type AudioInputSettings = z.infer<typeof AudioInputSchema>;
 
 /** A change to one or more groups. Each group given is merged over the current one. */
 export const SettingsPatchSchema = z.object({
   piano: PianoSettingsSchema.partial().optional(),
   keysOverlay: KeysOverlaySchema.partial().optional(),
   controller: ControllerSchema.partial().optional(),
+  audioInput: AudioInputSchema.partial().optional(),
 });
 export type SettingsPatch = z.infer<typeof SettingsPatchSchema>;
 
@@ -71,6 +86,7 @@ export function mergeSettings(current: AppSettings, patch: SettingsPatch): AppSe
     piano: { ...current.piano, ...patch.piano },
     keysOverlay: { ...current.keysOverlay, ...patch.keysOverlay },
     controller: { ...current.controller, ...patch.controller },
+    audioInput: { ...current.audioInput, ...patch.audioInput },
   });
   return merged.success ? merged.data : current;
 }
@@ -95,5 +111,6 @@ export function parseSettings(text: string | null): AppSettings {
     piano: group(PianoSettingsSchema, obj.piano, DEFAULT_SETTINGS.piano),
     keysOverlay: group(KeysOverlaySchema, obj.keysOverlay, DEFAULT_SETTINGS.keysOverlay),
     controller: group(ControllerSchema, obj.controller, DEFAULT_SETTINGS.controller),
+    audioInput: group(AudioInputSchema, obj.audioInput, DEFAULT_SETTINGS.audioInput),
   };
 }

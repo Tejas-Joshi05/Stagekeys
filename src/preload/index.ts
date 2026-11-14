@@ -42,6 +42,7 @@ const api: StagekeysApi = {
   getSettings: () => ipcRenderer.invoke(CHANNELS.getSettings),
   updateSettings: (patch) => ipcRenderer.invoke(CHANNELS.updateSettings, patch),
   onSettingsChanged: (callback) => subscribe<AppSettings>(CHANNELS.settingsChanged, callback),
+  requestMicrophone: () => ipcRenderer.invoke(CHANNELS.requestMicrophone),
   log: (level, message, data) => ipcRenderer.send(CHANNELS.log, level, message, data),
   openLogFolder: () => ipcRenderer.invoke(CHANNELS.openLogFolder),
 };

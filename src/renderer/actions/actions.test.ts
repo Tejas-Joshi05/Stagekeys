@@ -106,6 +106,7 @@ describe('keyboard shortcuts', () => {
     expect(actionForKey(key('h'), 'show')).toEqual({ type: 'show.panic' });
     expect(actionForKey(key('k'), 'show')).toEqual({ type: 'view.toggleKeys' });
     expect(actionForKey(key('p'), 'show')).toEqual({ type: 'audio.togglePiano' });
+    expect(actionForKey(key('l'), 'show')).toEqual({ type: 'audio.toggleInput' });
   });
 
   it('toggles the piano and keys picture with shift-command in the editor', () => {

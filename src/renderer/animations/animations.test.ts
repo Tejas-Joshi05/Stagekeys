@@ -2,6 +2,9 @@ import { Container } from 'pixi.js';
 import { describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
 import { MidiInputState, type MidiMessage } from '../midi';
+import { audioInput } from '../audio';
+import { rimPoint, shapeDistance, VIGNETTE_SHAPES } from './builtin/asciiVignette';
+import { asciiBar, readoutLines } from './builtin/midiReadout';
 import { splitUnits } from './builtin/textReveal';
 import { bindableParams, controlsFor } from './controls';
 import { defineAnimation, param, type Trigger } from './define';
@@ -61,12 +64,14 @@ describe('animation registry', () => {
     const ids = listAnimations().map((a) => a.id);
     expect(ids).toEqual([
       'ascii-garden',
+      'ascii-vignette',
       'pressed-bloom',
       'bloom',
       'pulse',
       'ripple',
       'text-reveal',
       'step-sequence',
+      'midi-readout',
     ]);
     expect(new Set(ids).size).toBe(ids.length);
     expect(getAnimation('bloom')?.name).toBe('Bloom');
@@ -339,5 +344,151 @@ describe('text reveal splitting', () => {
     expect(splitUnits('hey', 'letter')).toEqual(['h', 'e', 'y']);
     expect(splitUnits('one line', 'line')).toEqual(['one line']);
     expect(splitUnits('', 'line')).toEqual([]);
+  });
+});
+
+describe('sound input in animations', () => {
+  const options = { requestAccess: () => Promise.resolve(false), mock: true, onProblem: () => {} };
+
+  it('hands every animation the sound levels and binds parameters to them', () => {
+    const seen: { size: number; level: number; active: boolean }[] = [];
+    const def = defineAnimation({
+      id: 'listener',
+      name: 'Listener',
+      description: '',
+      inputs: ['audio'],
+      params: z.object({ size: param.number('Size', 0.5, 0, 1) }),
+      setup: () => ({}),
+      update(_s, _f, inputs) {
+        seen.push({
+          size: inputs.params.size,
+          level: inputs.audio.level,
+          active: inputs.audio.active,
+        });
+      },
+      teardown() {},
+    });
+    const instance = new AnimationInstance(
+      def,
+      config({
+        bindings: [
+          {
+            param: 'size',
+            source: 'audioBass',
+            controller: 1,
+            curve: 'linear',
+            min: 0.2,
+            max: 0.8,
+          },
+        ],
+      }),
+      vi.fn(),
+    );
+    const input = new MidiInputState();
+
+    // Sound input off: silent levels, the binding sits at its lowest value.
+    instance.update(1 / 60, input);
+    expect(seen.at(-1)).toEqual({ size: 0.2, level: 0, active: false });
+
+    try {
+      audioInput.start(options);
+      audioInput.configure({ enabled: true, sensitivity: 1, deviceId: '' });
+      audioInput.inject({ level: 0.5, bass: 0.5, mid: 0, treble: 0 });
+      audioInput.read(performance.now() + 50);
+      audioInput.read(performance.now() + 100);
+      instance.update(1 / 60, input);
+      expect(seen.at(-1)).toEqual({ size: 0.8, level: 1, active: true });
+    } finally {
+      audioInput.inject(null);
+      audioInput.dispose();
+      audioInput.configure({ enabled: false, sensitivity: 0.5, deviceId: '' });
+    }
+    instance.destroy();
+  });
+});
+
+describe('ASCII vignette shapes', () => {
+  it('every shape is 0 or small at the centre and grows towards a corner', () => {
+    for (const shape of VIGNETTE_SHAPES) {
+      for (const aspect of [16 / 9, 1, 0.5]) {
+        const centre = shapeDistance(shape, 0, 0.001, aspect);
+        const corner = shapeDistance(shape, 0.98, 0.98, aspect);
+        expect(Number.isFinite(centre), `${shape} centre`).toBe(true);
+        expect(Number.isFinite(corner), `${shape} corner`).toBe(true);
+        expect(centre, `${shape} centre`).toBeLessThan(0.5);
+        expect(corner, `${shape} corner`).toBeGreaterThan(centre);
+      }
+    }
+  });
+
+  it('measures the simple shapes as expected', () => {
+    expect(shapeDistance('oval', 1, 0, 16 / 9)).toBeCloseTo(1);
+    expect(shapeDistance('oval', 0, 1, 16 / 9)).toBeCloseTo(1);
+    // A circle is not stretched by a wide box: it touches top and bottom, not the sides.
+    expect(shapeDistance('circle', 0, 1, 16 / 9)).toBeCloseTo(1);
+    expect(shapeDistance('circle', 1, 0, 16 / 9)).toBeCloseTo(16 / 9);
+    expect(shapeDistance('letterbox', 0.9, 0.5, 2)).toBeCloseTo(0.5);
+    expect(shapeDistance('curtains', 0.9, 0.5, 2)).toBeCloseTo(0.9);
+    expect(shapeDistance('corners', 1, 0, 2)).toBe(0);
+    expect(shapeDistance('corners', 1, 1, 2)).toBeCloseTo(1);
+    expect(shapeDistance('diamond', 0.5, 0.5, 1)).toBeCloseTo(1);
+  });
+
+  it('places keys along the chosen edge, low notes first', () => {
+    expect(rimPoint(36, 'bottom')).toEqual({ x: -1, y: 1 });
+    expect(rimPoint(84, 'bottom')).toEqual({ x: 1, y: 1 });
+    expect(rimPoint(60, 'top')).toEqual({ x: 0, y: -1 });
+    expect(rimPoint(0, 'bottom').x).toBe(-1);
+    expect(rimPoint(127, 'bottom').x).toBe(1);
+    expect(rimPoint(36, 'left')).toEqual({ x: -1, y: 1 });
+    for (const note of [36, 48, 60, 72, 84]) {
+      const at = rimPoint(note, 'all around');
+      expect(Math.max(Math.abs(at.x), Math.abs(at.y))).toBeCloseTo(1);
+    }
+  });
+
+  it('sets up, runs and shows its final state without a GPU', () => {
+    const def = getAnimation('ascii-vignette');
+    if (!def) throw new Error('missing');
+    const onError = vi.fn();
+    const instance = new AnimationInstance(def, config({ width: 1920, height: 1080 }), onError);
+    const input = new MidiInputState();
+    instance.offer(noteOn(60), []);
+    for (let i = 0; i < 10; i++) instance.update(1 / 60, input);
+    instance.showFinal();
+    instance.destroy();
+    expect(onError).not.toHaveBeenCalled();
+  });
+});
+
+describe('MIDI readout', () => {
+  const p = {
+    show: 'both numbers',
+    bars: true,
+    noteNames: true,
+    keyLabel: 'which key',
+    velocityLabel: 'how hard',
+  } as const;
+
+  it('draws bars in proportion', () => {
+    expect(asciiBar(0, 127, 8)).toBe('[--------]');
+    expect(asciiBar(127, 127, 8)).toBe('[########]');
+    expect(asciiBar(64, 127, 8)).toBe('[####----]');
+    expect(asciiBar(999, 127, 8)).toBe('[########]');
+    expect(asciiBar(-5, 127, 8)).toBe('[--------]');
+  });
+
+  it('shows the two numbers a key sends', () => {
+    const lines = readoutLines(60, 97, { ...p, bars: false });
+    expect(lines.labels).toBe('which key\nhow hard');
+    expect(lines.values).toBe(' 60  C4\n 97');
+    expect(readoutLines(60, 97, p).values.split('\n')).toHaveLength(4);
+  });
+
+  it('shows dashes before anything is played, and the raw bytes when asked', () => {
+    expect(readoutLines(-1, 0, { ...p, bars: false }).values).toBe(' --\n --');
+    const rawLines = readoutLines(60, 97, { ...p, show: 'raw message' });
+    expect(rawLines.values).toBe('90 3C 61\nnote on, key 60, velocity 97');
+    expect(readoutLines(60, 97, { ...p, show: 'key only', bars: false }).labels).toBe('which key');
   });
 });

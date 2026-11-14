@@ -76,7 +76,7 @@ Use the `param` helpers so the editor knows which control to show:
 | `param.text(label, default)`                    | multi-line text                          |
 | `param.font(label, default)`                    | font picker                              |
 
-Only numeric parameters can be bound to velocity, a CC knob, pitch bend or note pitch.
+Only numeric parameters can be bound. A binding follows velocity, a CC knob, pitch bend, note pitch, or the sound input (loudness, bass, middle, treble, beats).
 
 ## Fitting the slide it lands on
 
@@ -91,6 +91,7 @@ Images an animation samples or draws live in `animations/assets/` and are listed
 - `frame.dt` and `frame.time` in seconds. `dt` is capped at 0.1 s, so a stall never causes a jump.
 - `inputs.triggers`: one entry per "go" this frame, each with `value` (0..1) and `note` (or `null` for a mapped trigger). A trigger is a key press that passed the element's "Reacts to keys" filter and was not used by a mapping, or an `anim.trigger` action.
 - `inputs.releases`, `inputs.held`, `inputs.cc(n)`, `inputs.pitchBend`, `inputs.sustain` for anything continuous.
+- `inputs.audio`: the sound input this frame, `{ active, level, bass, mid, treble, beat }`, each 0..1 and already shaped by the app's sensitivity setting. All zero while sound input is off, so an animation can read it without checking. List `'audio'` in `inputs` if you use it. `asciiVignette.ts` shows one way to make sound and keys do different things.
 
 ## Rules
 

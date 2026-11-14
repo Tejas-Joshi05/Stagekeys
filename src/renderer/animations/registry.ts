@@ -1,5 +1,7 @@
 import { asciiGarden } from './builtin/asciiGarden';
+import { asciiVignette } from './builtin/asciiVignette';
 import { bloom } from './builtin/bloom';
+import { midiReadout } from './builtin/midiReadout';
 import { pressedBloom } from './builtin/pressedBloom';
 import { pulse } from './builtin/pulse';
 import { ripple } from './builtin/ripple';
@@ -14,12 +16,14 @@ import type { RegisteredAnimation } from './define';
  */
 const ALL: readonly RegisteredAnimation[] = [
   asciiGarden,
+  asciiVignette,
   pressedBloom,
   bloom,
   pulse,
   ripple,
   textReveal,
   stepSequence,
+  midiReadout,
 ];
 
 const byId = new Map<string, RegisteredAnimation>();

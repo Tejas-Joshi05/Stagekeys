@@ -97,5 +97,6 @@ export function actionFor(match: MappingMatch): Action {
   const scaled = scaleValue(mapping.curve, value, mapping.min, mapping.max);
   if (action.type === 'anim.trigger') return { ...action, value: clamp01(scaled) };
   if (action.type === 'anim.setParam') return { ...action, value: scaled };
+  if (action.type === 'audio.setSensitivity') return { ...action, value: clamp01(scaled) };
   return action;
 }

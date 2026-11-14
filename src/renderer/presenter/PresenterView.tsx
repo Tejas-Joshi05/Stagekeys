@@ -1,11 +1,16 @@
 import { useEffect, useState } from 'react';
 import type { Action } from '../actions';
+import { AUDIO_STATUS_TEXT, AudioMeter, type AudioLevels } from '../audio';
 import { useDeckStore } from '../deck';
 import { KeysOverlayView, MidiMonitorView, MidiStatusBadge } from '../midi';
 import { useSlideImage } from '../render';
 import { useSettings } from '../shared/settings';
 import { formatDuration } from '../shared/util';
 import { presenterInput, sendToStage, usePresenterStore } from './control';
+
+const NO_SOUND: AudioLevels = { active: false, level: 0, bass: 0, mid: 0, treble: 0, beat: 0 };
+/** The stage's sound levels, as last reported (ten times a second). */
+const stageAudio = (): AudioLevels => usePresenterStore.getState().stage?.audio ?? NO_SOUND;
 
 function Clock() {
   const [now, setNow] = useState(() => new Date());
@@ -27,6 +32,8 @@ export function PresenterView() {
   const stage = usePresenterStore((s) => s.stage);
   const rehearsal = usePresenterStore((s) => s.rehearsal);
   const piano = useSettings((s) => s.piano.enabled);
+  const soundIn = useSettings((s) => s.audioInput.enabled);
+  const soundStatus = usePresenterStore((s) => s.stage?.audio?.status ?? 'off');
   const keysOnStage = useSettings((s) => s.keysOverlay.stage);
   const keysHere = useSettings((s) => s.keysOverlay.control);
 
@@ -95,6 +102,17 @@ export function PresenterView() {
               <KeysOverlayView input={presenterInput} width={292} />
             </>
           )}
+          {soundIn && (
+            <>
+              <div className="label">Sound in</div>
+              <AudioMeter read={stageAudio} width={292} height={64} />
+              {soundStatus !== 'live' && (
+                <div className="presenter-stats warn" data-testid="presenter-sound-status">
+                  {AUDIO_STATUS_TEXT[soundStatus]}
+                </div>
+              )}
+            </>
+          )}
           <div className="label">MIDI</div>
           <MidiMonitorView lines={stage?.monitor ?? []} />
           <div className="presenter-stats">
@@ -124,6 +142,14 @@ export function PresenterView() {
           onClick={act({ type: 'audio.togglePiano' })}
         >
           Piano {piano ? 'on' : 'off'} (P)
+        </button>
+        <button
+          className={soundIn ? 'toggle on' : 'toggle'}
+          aria-pressed={soundIn}
+          onClick={act({ type: 'audio.toggleInput' })}
+          data-testid="presenter-sound"
+        >
+          Sound in {soundIn ? 'on' : 'off'} (L)
         </button>
         <button
           className={keysOnStage ? 'toggle on' : 'toggle'}

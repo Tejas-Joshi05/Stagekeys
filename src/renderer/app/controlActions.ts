@@ -1,4 +1,5 @@
 import { actions } from '../actions';
+import { setAudioSensitivity } from '../audio';
 import {
   addSlide,
   deleteElements,
@@ -221,4 +222,8 @@ export function registerControlActions(): void {
   actions.register('audio.togglePiano', () => {
     updateSettings({ piano: { enabled: !useSettings.getState().piano.enabled } });
   });
+  actions.register('audio.toggleInput', () => {
+    updateSettings({ audioInput: { enabled: !useSettings.getState().audioInput.enabled } });
+  });
+  actions.register('audio.setSensitivity', (a) => setAudioSensitivity(a.value));
 }

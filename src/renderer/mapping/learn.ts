@@ -19,7 +19,7 @@ export function learnFromMessage(m: MidiMessage, action: Action): Learned | null
   if (m.type === 'cc') {
     if (m.controller === SUSTAIN_CC) return { trigger: { kind: 'sustainDown' }, filters: {} };
     // A knob driving a parameter should be continuous; anything else is a one-shot.
-    return action.type === 'anim.setParam'
+    return action.type === 'anim.setParam' || action.type === 'audio.setSensitivity'
       ? { trigger: { kind: 'ccValue', controller: m.controller }, filters: {} }
       : { trigger: { kind: 'ccAbove', controller: m.controller, threshold: 64 }, filters: {} };
   }

@@ -1,5 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
 import { DEFAULT_SETTINGS } from '../../ipc/settings';
+import {
+  AUDIO_STATUS_TEXT,
+  audioInput,
+  AudioMeter,
+  listAudioInputs,
+  setAudioSensitivity,
+  useAudioInputStore,
+  type AudioDevice,
+} from '../audio';
 import { useDeckStore } from '../deck';
 import { controlPicker } from '../mapping';
 import {
@@ -187,6 +196,112 @@ function PianoSetup() {
   );
 }
 
+const readAudio = () => audioInput.read();
+
+function sensitivityWord(value: number): string {
+  if (value >= 0.97) return 'as sensitive as it gets';
+  if (value >= 0.75) return 'very sensitive';
+  if (value >= 0.55) return 'sensitive';
+  if (value >= 0.45) return 'balanced';
+  if (value >= 0.25) return 'firm';
+  if (value > 0.03) return 'stiff';
+  return 'as stiff as it gets';
+}
+
+/** Sound coming in, for audio-reactive animations: on/off, which input, how sensitive, and a meter. */
+function SoundInputSetup() {
+  const settings = useSettings((s) => s.audioInput);
+  const status = useAudioInputStore((s) => s.status);
+  const [devices, setDevices] = useState<AudioDevice[]>([]);
+  // The slider moves at once; the setting itself is saved a moment later.
+  const [sensitivity, setSensitivity] = useState(settings.sensitivity);
+  useEffect(() => setSensitivity(settings.sensitivity), [settings.sensitivity]);
+
+  // Device names are only readable once the input is open.
+  useEffect(() => {
+    let cancelled = false;
+    const refresh = (): void => {
+      void listAudioInputs().then((list) => {
+        if (!cancelled) setDevices(list);
+      });
+    };
+    refresh();
+    const media = navigator.mediaDevices as MediaDevices | undefined;
+    media?.addEventListener('devicechange', refresh);
+    return () => {
+      cancelled = true;
+      media?.removeEventListener('devicechange', refresh);
+    };
+  }, [status]);
+
+  const known = devices.some((d) => d.id === settings.deviceId);
+  return (
+    <Section
+      title="Sound input"
+      actions={
+        <label className="switch big" data-testid="audio-input-toggle">
+          <input
+            type="checkbox"
+            checked={settings.enabled}
+            onChange={(e) => updateSettings({ audioInput: { enabled: e.target.checked } })}
+          />
+          <span>{settings.enabled ? 'On' : 'Off'}</span>
+        </label>
+      }
+    >
+      <p className="hint">
+        Lets animations react to sound: your voice, the room, music. It is only measured, never
+        recorded. Toggle it with ⇧⌘L, or L during a show.
+      </p>
+      <AudioMeter read={readAudio} />
+      <p
+        className={status === 'blocked' || status === 'no-input' ? 'hint warn' : 'hint'}
+        data-testid="audio-input-status"
+      >
+        {AUDIO_STATUS_TEXT[status]}
+      </p>
+      <label className="field wide">
+        <span>
+          Sensitivity:{' '}
+          <strong data-testid="audio-sensitivity-word">{sensitivityWord(sensitivity)}</strong>
+        </span>
+        <input
+          type="range"
+          min={0}
+          max={1}
+          step={0.01}
+          value={sensitivity}
+          data-testid="audio-sensitivity"
+          aria-label="Sound sensitivity, from stiffest to most sensitive"
+          onChange={(e) => {
+            const value = Number(e.target.value);
+            setSensitivity(value);
+            setAudioSensitivity(value);
+          }}
+        />
+        <span className="range-ends">
+          <span>stiff</span>
+          <span>sensitive</span>
+        </span>
+      </label>
+      <SelectField
+        label="Input"
+        wide
+        value={known ? settings.deviceId : ''}
+        options={[
+          { value: '', label: 'System default' },
+          ...devices.map((d) => ({ value: d.id, label: d.label })),
+        ]}
+        onChange={(deviceId) => updateSettings({ audioInput: { deviceId } })}
+      />
+      <p className="hint">
+        Map a knob to “Set sound sensitivity” in the Mapping tab to ride it live. Any animation
+        setting can also follow the sound: see “MIDI and sound bindings” on an animation.
+      </p>
+    </Section>
+  );
+}
+
 function KeysPictureSetup() {
   const overlay = useSettings((s) => s.keysOverlay);
   return (
@@ -230,6 +345,7 @@ export function MidiPanel({ virtualKeyboard }: { virtualKeyboard: boolean }) {
         <DevicePicker />
       </Section>
       <PianoSetup />
+      <SoundInputSetup />
       <KeysPictureSetup />
       <ControllerSetup />
       <Section title="Monitor">

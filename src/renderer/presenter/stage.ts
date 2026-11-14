@@ -1,6 +1,12 @@
 import { actionForKey, actions, dispatch } from '../actions';
 import { preloadArt } from '../animations';
-import { startPiano } from '../audio';
+import {
+  audioInput,
+  setAudioSensitivity,
+  startAudioInput,
+  startPiano,
+  useAudioInputStore,
+} from '../audio';
 import { parseDeck } from '../deck';
 import { startMappingEngine } from '../mapping';
 import {
@@ -24,7 +30,16 @@ declare global {
   interface Window {
     /** Test and development hook: feed raw MIDI bytes into this window. */
     __stagekeysMidi?: (bytes: number[]) => void;
-    __stagekeysStage?: { slideIndex: () => number; black: () => boolean; fps: () => number };
+    /** Test and development hook: feed raw sound levels as if a microphone delivered them. */
+    __stagekeysAudio?: (
+      raw: { level: number; bass: number; mid: number; treble: number } | null,
+    ) => void;
+    __stagekeysStage?: {
+      slideIndex: () => number;
+      black: () => boolean;
+      fps: () => number;
+      sound: () => number;
+    };
   }
 }
 
@@ -213,6 +228,10 @@ export async function runStage(root: HTMLElement): Promise<void> {
   actions.register('audio.togglePiano', () => {
     updateSettings({ piano: { enabled: !useSettings.getState().piano.enabled } });
   });
+  actions.register('audio.toggleInput', () => {
+    updateSettings({ audioInput: { enabled: !useSettings.getState().audioInput.enabled } });
+  });
+  actions.register('audio.setSensitivity', (a) => setAudioSensitivity(a.value));
   let ending = false;
   actions.register('show.end', () => {
     if (ending) return;
@@ -258,6 +277,16 @@ export async function runStage(root: HTMLElement): Promise<void> {
     }),
   });
   startPiano({ bus: midi.bus });
+  // Sound input for audio-reactive animations. During a show the system is never
+  // asked for access (that is a dialog); grant it once from the editor beforehand.
+  startAudioInput({
+    requestAccess: () => api().requestMicrophone(),
+    mock: info.e2e,
+    onProblem: (message) => {
+      logger.warn(message);
+      send({ t: 'notice', level: 'warn', message });
+    },
+  });
   if (info.e2e) {
     await midi.start(
       new MockMidiSource([{ id: 'mock', name: 'Mock Keys', manufacturer: 'Stagekeys' }]),
@@ -267,10 +296,12 @@ export async function runStage(root: HTMLElement): Promise<void> {
   }
   if (info.e2e || info.isDev) {
     window.__stagekeysMidi = (bytes) => midi.inject(bytes);
+    window.__stagekeysAudio = (raw) => audioInput.inject(raw);
     window.__stagekeysStage = {
       slideIndex: () => player.slideIndex,
       black: () => player.isBlack,
       fps: () => player.meter.fps,
+      sound: () => audioInput.read().level,
     };
   }
 
@@ -301,6 +332,7 @@ export async function runStage(root: HTMLElement): Promise<void> {
       cc: [...midi.input.cc.entries()].filter(([, v]) => v > 0),
       pitchBend: midi.input.pitchBend,
       sustain: midi.input.sustain,
+      audio: { status: useAudioInputStore.getState().status, ...audioInput.read(now) },
     };
     send(state);
     if (init.rehearsal) {

@@ -2,13 +2,16 @@ import { z } from 'zod';
 import { CurveSchema, MappingSchema, ZoneSchema } from '../mapping';
 
 /**
- * Deck schema, version 1.
+ * Deck schema, version 2.
+ *
+ * Version 2 (Stagekeys 0.3.0): animation bindings can follow the sound input
+ * (`audioLevel`, `audioBass`, `audioMid`, `audioTreble`, `audioBeat`).
  *
  * Any change to the shape of a saved deck must:
  *   1. bump CURRENT_SCHEMA_VERSION,
  *   2. add a numbered migration in ./migrations with a test and fixture.
  */
-export const CURRENT_SCHEMA_VERSION = 1;
+export const CURRENT_SCHEMA_VERSION = 2;
 
 const finite = z.number().refine(Number.isFinite, 'Must be a finite number');
 const colour = z.string().regex(/^#[0-9a-fA-F]{6}$/, 'Expected a #rrggbb colour');
@@ -53,10 +56,20 @@ export const ImageElementSchema = ElementBase.extend({
   assetId: z.string().min(1),
 });
 
-/** Drives one numeric animation parameter from a live MIDI value. */
+/** Drives one numeric animation parameter from a live MIDI value or from the sound input. */
 export const BindingSchema = z.object({
   param: z.string().min(1),
-  source: z.enum(['velocity', 'cc', 'pitchBend', 'note']),
+  source: z.enum([
+    'velocity',
+    'cc',
+    'pitchBend',
+    'note',
+    'audioLevel',
+    'audioBass',
+    'audioMid',
+    'audioTreble',
+    'audioBeat',
+  ]),
   /** Controller number, used when source is `cc`. */
   controller: z.number().int().min(0).max(127).default(1),
   curve: CurveSchema.default('linear'),

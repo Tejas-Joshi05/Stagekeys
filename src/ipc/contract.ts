@@ -117,6 +117,13 @@ export interface StagekeysApi {
   updateSettings(patch: SettingsPatch): Promise<AppSettings>;
   onSettingsChanged(callback: (settings: AppSettings) => void): () => void;
 
+  /**
+   * Asks the operating system for microphone access. Resolves true when sound
+   * input may be opened. During a show it never prompts: it only reports
+   * whether access was already granted.
+   */
+  requestMicrophone(): Promise<boolean>;
+
   log(level: LogLevel, message: string, data?: unknown): void;
   openLogFolder(): Promise<void>;
 }
@@ -150,6 +157,7 @@ export const CHANNELS = {
   getSettings: 'settings:get',
   updateSettings: 'settings:update',
   settingsChanged: 'settings:changed',
+  requestMicrophone: 'audio:requestMicrophone',
   log: 'log:write',
   openLogFolder: 'log:openFolder',
 } as const;

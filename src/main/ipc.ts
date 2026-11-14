@@ -1,4 +1,12 @@
-import { app, dialog, ipcMain, screen, shell, type IpcMainInvokeEvent } from 'electron';
+import {
+  app,
+  dialog,
+  ipcMain,
+  screen,
+  shell,
+  systemPreferences,
+  type IpcMainInvokeEvent,
+} from 'electron';
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { z } from 'zod';
@@ -343,6 +351,21 @@ export function registerIpc(): void {
     z.tuple([SettingsPatchSchema]),
     ([patch]) => updateSettings(patch),
     () => DEFAULT_SETTINGS,
+  );
+
+  handle(
+    CHANNELS.requestMicrophone,
+    z.tuple([]),
+    async () => {
+      // Only macOS has an app-level microphone switch that Electron can ask about.
+      if (process.platform !== 'darwin') return true;
+      const status = systemPreferences.getMediaAccessStatus('microphone');
+      if (status === 'granted') return true;
+      // The system prompt is a dialog, so it is never raised mid-show or in tests.
+      if (status !== 'not-determined' || isShowActive() || isE2E) return false;
+      return systemPreferences.askForMediaAccess('microphone');
+    },
+    () => false,
   );
 
   ipcMain.on(CHANNELS.showMessage, (event, message: unknown) => {

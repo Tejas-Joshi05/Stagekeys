@@ -41,13 +41,19 @@ if (!app.requestSingleInstanceLock()) {
       platform: process.platform,
     });
 
-    session.defaultSession.setPermissionRequestHandler((_wc, permission, callback) => {
-      const allowed = ALLOWED_PERMISSIONS.has(permission);
+    session.defaultSession.setPermissionRequestHandler((_wc, permission, callback, details) => {
+      // Sound input (for audio-reactive animations) is the only media allowed: never the camera.
+      const types = 'mediaTypes' in details ? (details.mediaTypes ?? []) : [];
+      const audioOnly =
+        permission === 'media' && types.length > 0 && types.every((type) => type === 'audio');
+      const allowed = ALLOWED_PERMISSIONS.has(permission) || audioOnly;
       if (!allowed) log('warn', 'main', `Denied permission request: ${permission}`);
       callback(allowed);
     });
-    session.defaultSession.setPermissionCheckHandler((_wc, permission) =>
-      ALLOWED_PERMISSIONS.has(permission),
+    session.defaultSession.setPermissionCheckHandler(
+      (_wc, permission, _origin, details) =>
+        ALLOWED_PERMISSIONS.has(permission) ||
+        (permission === 'media' && details.mediaType === 'audio'),
     );
 
     registerIpc();

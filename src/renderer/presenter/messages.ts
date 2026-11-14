@@ -39,6 +39,18 @@ export const StageStateSchema = z.object({
   cc: z.array(z.tuple([z.number(), z.number()])).default([]),
   pitchBend: z.number().default(0),
   sustain: z.boolean().default(false),
+  /** Sound input on the stage, for the meter in the presenter view. */
+  audio: z
+    .object({
+      status: z.enum(['off', 'paused', 'starting', 'live', 'blocked', 'no-input', 'unavailable']),
+      active: z.boolean(),
+      level: z.number(),
+      bass: z.number(),
+      mid: z.number(),
+      treble: z.number(),
+      beat: z.number(),
+    })
+    .optional(),
 });
 export type StageState = z.infer<typeof StageStateSchema>;
 

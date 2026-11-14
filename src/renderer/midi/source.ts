@@ -18,19 +18,26 @@ export class WebMidiSource implements MidiSource {
   private readonly attached = new Map<string, MIDIInput>();
   private onMessage: RawMidiHandler = () => undefined;
   private onDevices: DevicesHandler = () => undefined;
+  private stopped = false;
 
   async start(onMessage: RawMidiHandler, onDevices: DevicesHandler): Promise<void> {
     this.onMessage = onMessage;
     this.onDevices = onDevices;
+    this.stopped = false;
     if (typeof navigator === 'undefined' || !('requestMIDIAccess' in navigator)) {
       throw new Error('Web MIDI is not available in this environment.');
     }
-    this.access = await navigator.requestMIDIAccess({ sysex: false });
-    this.access.onstatechange = () => this.refresh();
+    const access = await navigator.requestMIDIAccess({ sysex: false });
+    // Stopped while waiting for access (a show started or ended in that moment):
+    // attaching now would leave a second listener and every key would fire twice.
+    if (this.stopped) return;
+    this.access = access;
+    access.onstatechange = () => this.refresh();
     this.refresh();
   }
 
   stop(): void {
+    this.stopped = true;
     if (this.access) this.access.onstatechange = null;
     for (const input of this.attached.values()) input.onmidimessage = null;
     this.attached.clear();

@@ -43,14 +43,31 @@ test('animations play, the show survives a stress run, and export works', async 
   await win.evaluate(() => window.__stagekeysMidi?.([0x90, 64, 120]));
 
   // Slides 2-6: the other animations plus ordinary elements.
-  for (const id of ['ascii-garden', 'pressed-bloom', 'ripple', 'text-reveal', 'step-sequence']) {
+  for (const id of [
+    'ascii-garden',
+    'pressed-bloom',
+    'ripple',
+    'text-reveal',
+    'step-sequence',
+    'ascii-vignette',
+    'midi-readout',
+  ]) {
     await win.getByTestId('add-slide').click();
     await win.getByTestId('add-animation').selectOption(id);
     await win.getByTestId('add-rect').click();
     await win.getByTestId('add-text').click();
   }
   await win.getByTestId('add-animation').selectOption('pulse');
-  await expect(win.getByTestId('slide-thumb')).toHaveCount(6);
+  await expect(win.getByTestId('slide-thumb')).toHaveCount(8);
+
+  // The last animation follows the sound input through a binding.
+  await win.getByTestId('add-binding').click();
+  await win
+    .getByTestId('binding')
+    .last()
+    .getByLabel('Driven by')
+    .selectOption({ label: 'Sound: loudness' });
+  await expect(win.getByTestId('bound-note')).toContainText('sound: loudness');
 
   await win.getByTestId('save').click();
   await expect(win.getByTestId('save-status')).toHaveText('Saved');
@@ -62,16 +79,29 @@ test('animations play, the show survives a stress run, and export works', async 
   const stage = await stagePromise;
   await stage.waitForFunction(() => window.__stagekeysStage !== undefined);
 
-  // 400 rounds of notes, knob moves and slide changes, as fast as they will go.
+  // Sound input switches on from the stage keyboard; the test feeds it levels.
+  await stage.keyboard.press('l');
+  await expect(win.getByTestId('presenter-sound')).toHaveAttribute('aria-pressed', 'true');
+  await stage.evaluate(() =>
+    window.__stagekeysAudio?.({ level: 0.2, bass: 0.2, mid: 0.1, treble: 0.05 }),
+  );
+  await expect
+    .poll(() => stage.evaluate(() => window.__stagekeysStage?.sound() ?? 0))
+    .toBeGreaterThan(0.5);
+
+  // 400 rounds of notes, knob moves, sound and slide changes, as fast as they will go.
   await stage.evaluate(async () => {
     const midi = window.__stagekeysMidi;
-    if (!midi) throw new Error('no midi hook');
+    const audio = window.__stagekeysAudio;
+    if (!midi || !audio) throw new Error('no midi or audio hook');
     const key = (k: string) => window.dispatchEvent(new KeyboardEvent('keydown', { key: k }));
     for (let i = 0; i < 400; i++) {
       midi([0x90, 36 + (i % 60), 1 + ((i * 7) % 127)]);
       midi([0xb0, 1, i % 128]);
       midi([0xe0, 0, i % 128]);
       midi([0x80, 36 + (i % 60), 0]);
+      const loud = (i % 16) / 16;
+      audio({ level: loud, bass: loud * loud, mid: 1 - loud, treble: i % 3 === 0 ? loud : 0 });
       if (i % 5 === 0) key(i % 40 < 20 ? 'ArrowRight' : 'ArrowLeft');
       if (i % 97 === 0) key('h');
       if (i % 10 === 0) await new Promise((r) => requestAnimationFrame(r));
@@ -94,6 +124,7 @@ test('animations play, the show survives a stress run, and export works', async 
   const settings = JSON.parse(await readFile(path.join(work, 'profile', 'settings.json'), 'utf8'));
   expect(settings.piano.enabled).toBe(true);
   expect(settings.keysOverlay.stage).toBe(true);
+  expect(settings.audioInput.enabled).toBe(true);
 
   const closed = stage.waitForEvent('close');
   // The window closes while the key press is still being acknowledged, so the call itself may reject.
@@ -117,7 +148,7 @@ test('animations play, the show survives a stress run, and export works', async 
       async () =>
         (await readdir(exportDir).catch(() => [])).filter((f) => f.endsWith('.png')).length,
     )
-    .toBe(6);
+    .toBe(8);
   await menuAction('file.exportPdf');
   await expect
     .poll(async () => (await readdir(exportDir).catch(() => [])).some((f) => f.endsWith('.pdf')))

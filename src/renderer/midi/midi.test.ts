@@ -1,9 +1,9 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { MidiBus } from './bus';
 import { MidiInputState } from './inputState';
 import { parseMidi } from './parse';
 import { MidiService } from './service';
-import { MockMidiSource } from './source';
+import { MockMidiSource, WebMidiSource } from './source';
 import { ALL_DEVICES, useMidiStore } from './store';
 
 describe('parseMidi', () => {
@@ -203,5 +203,60 @@ describe('MidiService hot-plugging', () => {
     source.send('a', [0xff, 0xff]);
     source.send('a', []);
     expect(service.bus.head).toBe(0);
+  });
+});
+
+describe('WebMidiSource', () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  /** A stand-in for the browser's MIDI access with one connected keyboard. */
+  function fakeAccess() {
+    const input = {
+      id: 'in-1',
+      name: 'MPK mini',
+      manufacturer: 'AKAI',
+      state: 'connected',
+      onmidimessage: null as ((event: { data: Uint8Array; timeStamp: number }) => void) | null,
+    };
+    const access = {
+      inputs: new Map([[input.id, input]]),
+      onstatechange: null as (() => void) | null,
+    };
+    return { input, access };
+  }
+
+  it('attaches to connected devices and lets go of them on stop', async () => {
+    const { input, access } = fakeAccess();
+    vi.stubGlobal('navigator', { requestMIDIAccess: () => Promise.resolve(access) });
+    const source = new WebMidiSource();
+    const onMessage = vi.fn();
+    const onDevices = vi.fn();
+    await source.start(onMessage, onDevices);
+    expect(onDevices).toHaveBeenCalledWith([
+      { id: 'in-1', name: 'MPK mini', manufacturer: 'AKAI' },
+    ]);
+    input.onmidimessage?.({ data: Uint8Array.from([0x90, 60, 100]), timeStamp: 5 });
+    expect(onMessage).toHaveBeenCalledTimes(1);
+    source.stop();
+    expect(input.onmidimessage).toBeNull();
+    expect(access.onstatechange).toBeNull();
+  });
+
+  it('does not attach if it was stopped while waiting for access', async () => {
+    const { input, access } = fakeAccess();
+    let grant: (value: unknown) => void = () => undefined;
+    vi.stubGlobal('navigator', {
+      requestMIDIAccess: () => new Promise((resolve) => (grant = resolve)),
+    });
+    const source = new WebMidiSource();
+    const onDevices = vi.fn();
+    const starting = source.start(vi.fn(), onDevices);
+    source.stop(); // e.g. a show starts before MIDI access arrived
+    grant(access);
+    await starting;
+    // No second listener left behind to double every key press.
+    expect(input.onmidimessage).toBeNull();
+    expect(access.onstatechange).toBeNull();
+    expect(onDevices).not.toHaveBeenCalled();
   });
 });

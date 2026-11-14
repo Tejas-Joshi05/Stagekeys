@@ -1,8 +1,29 @@
 import type { Container } from 'pixi.js';
 import { z } from 'zod';
+import type { AudioLevels } from '../audio';
 
 /** What an animation reacts to. Shown in the editor so you know what will drive it. */
-export type MidiInputKind = 'trigger' | 'velocity' | 'heldNotes' | 'cc' | 'pitchBend' | 'sustain';
+export type MidiInputKind =
+  | 'trigger'
+  | 'velocity'
+  | 'heldNotes'
+  | 'cc'
+  | 'pitchBend'
+  | 'sustain'
+  /** Sound input: loudness, bass, mid, treble and beats. */
+  | 'audio';
+
+/** What a numeric parameter can follow: MIDI values, or the loudness of the sound input. */
+export type BindingSource =
+  | 'velocity'
+  | 'cc'
+  | 'pitchBend'
+  | 'note'
+  | 'audioLevel'
+  | 'audioBass'
+  | 'audioMid'
+  | 'audioTreble'
+  | 'audioBeat';
 
 /** One "go" signal: a key press that passed the element's note filter, or a mapped trigger action. */
 export interface Trigger {
@@ -33,6 +54,11 @@ export interface AnimationInputs<P> {
   /** -1..1. */
   pitchBend: number;
   sustain: boolean;
+  /**
+   * Sound input this frame, each value 0..1, already shaped by the app's
+   * sensitivity setting. All zero (and `active` false) when sound input is off.
+   */
+  audio: Readonly<AudioLevels>;
 }
 
 export interface AnimationContext<P> {
@@ -77,7 +103,7 @@ export interface AnimationDefinition<S extends z.ZodObject, State> {
 
 export interface DefaultBinding {
   param: string;
-  source: 'velocity' | 'cc' | 'pitchBend' | 'note';
+  source: BindingSource;
   controller?: number;
   min: number;
   max: number;

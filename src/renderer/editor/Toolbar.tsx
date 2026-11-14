@@ -29,6 +29,12 @@ const ICONS: Record<string, ReactNode> = {
       <path d="M5.5 3v10M8 3v10M10.5 3v10" />
     </>
   ),
+  sound: (
+    <>
+      <rect x="6" y="2" width="4" height="7.5" rx="2" />
+      <path d="M3.5 7.5a4.5 4.5 0 0 0 9 0M8 12v2M5.5 14h5" />
+    </>
+  ),
   keys: (
     <>
       <rect x="1.5" y="4" width="13" height="8" rx="1.5" />
@@ -104,6 +110,7 @@ export function Toolbar() {
   const midiStatus = useMidiStore((s) => s.status);
   const midiDetail = useMidiStore((s) => s.detail);
   const piano = useSettings((s) => s.piano.enabled);
+  const soundIn = useSettings((s) => s.audioInput.enabled);
   const keys = useSettings((s) => s.keysOverlay.control);
   const act = (action: Action) => () => dispatch(action, 'ui');
 
@@ -237,6 +244,15 @@ export function Toolbar() {
           data-testid="toggle-piano"
         >
           <Icon name="piano" />
+        </button>
+        <button
+          className={soundIn ? 'tool toggle on' : 'tool toggle'}
+          onClick={act({ type: 'audio.toggleInput' })}
+          aria-pressed={soundIn}
+          title={soundIn ? 'Sound input is on (⇧⌘L)' : 'Sound input is off (⇧⌘L)'}
+          data-testid="toggle-sound-input"
+        >
+          <Icon name="sound" />
         </button>
         <button
           className={keys ? 'tool toggle on' : 'tool toggle'}

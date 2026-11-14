@@ -114,7 +114,8 @@ export class PianoEngine {
     const ctx = this.context();
     if (!ctx || !this.dry) return;
     // Retriggering a key that is still sounding: let the old one go quickly.
-    for (const v of this.voices) if (v.note === note) this.release(v, ctx.currentTime, 0.04);
+    // Copied first: release() removes the voice from the list being walked.
+    for (const v of [...this.voices]) if (v.note === note) this.release(v, ctx.currentTime, 0.04);
     if (this.voices.length >= MAX_VOICES) {
       const oldest = this.voices.shift();
       oldest?.stop(ctx.currentTime + 0.02);
@@ -126,7 +127,7 @@ export class PianoEngine {
   noteOff(note: number): void {
     const ctx = this.ctx;
     if (!ctx) return;
-    for (const v of this.voices) {
+    for (const v of [...this.voices]) {
       if (v.note !== note || v.sustained) continue;
       if (this.sustain) v.sustained = true;
       else this.release(v, ctx.currentTime);

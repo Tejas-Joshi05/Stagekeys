@@ -1644,3 +1644,22 @@ button.tool.toggle.on {
     transition: none !important;
   }
 }
+
+/* ── Sound input ─────────────────────────────────────────────────────────── */
+.audio-meter {
+  display: block;
+  max-width: 100%;
+  margin: 6px 0 4px;
+}
+.range-ends {
+  display: flex;
+  justify-content: space-between;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  opacity: 0.6;
+}
+.presenter-stats.warn {
+  color: var(--rose);
+}
