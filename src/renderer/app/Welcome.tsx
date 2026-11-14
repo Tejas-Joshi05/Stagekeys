@@ -6,6 +6,7 @@ import { api } from '../shared/api';
 import { notify } from '../shared/notify';
 import { useAppStore } from './appStore';
 import { reportOpenResult } from './controlActions';
+import { HelpButton } from './Help';
 import { WelcomeGarden } from './WelcomeGarden';
 
 const when = (ms: number): string =>
@@ -82,6 +83,12 @@ export function Welcome() {
             Open deck
           </button>
         </div>
+        <ol className="welcome-steps">
+          <li>Build slides with text, images and animations that react to your keyboard.</li>
+          <li>In the Mapping tab, choose what each pad, key, knob or chord does.</li>
+          <li>Rehearse with a timer, then present on the audience screen.</li>
+        </ol>
+        <HelpButton />
         {drafts.length > 0 && (
           <div className="drafts" data-testid="drafts">
             <h2>Unsaved drafts</h2>

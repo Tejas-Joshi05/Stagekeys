@@ -270,6 +270,15 @@ export function Toolbar() {
           <span className="tool-label">Keys</span>
         </button>
         <MidiStatusBadge status={midiStatus} detail={midiDetail} />
+        <button
+          className="tool"
+          onClick={act({ type: 'view.toggleHelp' })}
+          title="How to use Stagekeys, and every shortcut (?)"
+          aria-label="Help"
+          data-testid="open-help"
+        >
+          ?
+        </button>
       </div>
 
       <div className="tool-group show">

@@ -453,6 +453,13 @@ export function CanvasEditor() {
             />
           )}
         </svg>
+        {slide && slide.elements.length === 0 && (
+          <p className="canvas-empty" data-testid="canvas-empty">
+            This slide is empty.
+            <br />
+            Add text, a shape, an image or an animation from the toolbar above.
+          </p>
+        )}
         {editing?.type === 'text' && (
           <textarea
             className="text-editor"

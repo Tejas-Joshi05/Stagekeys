@@ -16,6 +16,7 @@ import {
   isGlyphTransition,
   tileAlpha,
   TRANSITION_GLYPHS,
+  TRANSITION_HINTS,
   TRANSITION_KINDS,
   TRANSITION_LABELS,
   transitionFrame,
@@ -299,6 +300,23 @@ describe('ASCII transitions', () => {
       expect(lo).toBeLessThan(0.15);
       expect(hi).toBeGreaterThan(0.85);
     }
+  });
+
+  it.each(kinds)('%s going back is the forward order exactly reversed', (kind) => {
+    for (const [c, r] of [
+      [0, 0],
+      [7, 3],
+      [47, 26],
+      [20, 13],
+    ] as const) {
+      expect(cellDelay(kind, c, r, COLS, ROWS, -1)).toBeCloseTo(
+        1 - cellDelay(kind, c, r, COLS, ROWS, 1),
+      );
+    }
+  });
+
+  it('has a one-line description for every transition', () => {
+    for (const kind of TRANSITION_KINDS) expect(TRANSITION_HINTS[kind].length).toBeGreaterThan(10);
   });
 
   it('survives a grid of one cell', () => {

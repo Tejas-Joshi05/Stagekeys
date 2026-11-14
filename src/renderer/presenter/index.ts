@@ -13,6 +13,7 @@ export { RehearsalReport } from './RehearsalReport';
 export { ShowTimeline, type SlideTiming } from './timeline';
 export {
   isGlyphTransition,
+  TRANSITION_HINTS,
   TRANSITION_LABELS,
   transitionFrame,
   type TransitionKind,

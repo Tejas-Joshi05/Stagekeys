@@ -14,7 +14,17 @@ Deck schema is now version 4 (chord triggers, more transitions). Older decks ope
 - A chord of pads is kept apart from the same notes on the keys (they arrive on different channels).
 - Chords appear in the presenter view's "On this slide" list like any other mapping, and how hard the chord is played can drive an animation.
 
+### Easier to find your way
+
+- **Help inside the app**: press **?** or F1, use the **?** in the toolbar, or Help › Stagekeys Help. It explains the four steps (build, plug in, map, present) and lists every keyboard shortcut for the show and the editor. It never opens during a show.
+- **A full guide**: `docs/GUIDE.md` explains every feature and how to use it. It is kept up to date with each change.
+- **An empty slide says what to add**, and the welcome screen says in three lines how the app is used.
+- **Each transition is described in a sentence** under the menu.
+- **Mapping tab**: "Map a run of keys" and "Map a chord" are proper buttons with a line saying when to use them.
+
 ### Transitions
+
+- **Going back plays the transition in reverse.** Leaving slide 4 for slide 3 plays the transition slide 4 arrived with, backwards: a cover uncovers, a zoom pulls back, ASCII rain rises, an iris closes. (Before, going back played the destination slide's own transition.)
 
 - **Five ASCII transitions**: the old slide breaks into character cells that flicker through glyphs while the new slide shows through, so ASCII artwork on both slides appears to retype itself. The patterns: **ASCII dissolve** (scattered), **ASCII wipe** (across), **ASCII typewriter** (row by row), **ASCII rain** (columns falling) and **ASCII iris** (opening from the centre). Going back through the deck runs each pattern the other way. Per slide you can set the character size and the character set (riso, code, dots, binary, slashes, blocks). Inks are chosen to show on each slide's background.
 - **Three plain ones**: Dip to black, Slide up and Cover.

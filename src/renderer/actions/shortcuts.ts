@@ -82,6 +82,9 @@ export function actionForKey(e: KeyLike, context: ShortcutContext): Action | nul
 
   const step = e.shiftKey ? 10 : 1;
   switch (key) {
+    case '?':
+    case 'F1':
+      return { type: 'view.toggleHelp' };
     case 'Delete':
     case 'Backspace':
       return { type: 'edit.delete' };

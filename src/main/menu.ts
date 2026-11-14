@@ -83,6 +83,8 @@ export function buildMenu(): void {
     {
       label: 'Help',
       submenu: [
+        action('Stagekeys Help', 'view.toggleHelp', 'F1'),
+        { type: 'separator' },
         {
           label: 'Open Log Folder',
           click: () => {

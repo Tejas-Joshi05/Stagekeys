@@ -1063,6 +1063,10 @@ export function MappingPanel() {
             );
           })}
         </ul>
+        <p className="hint">
+          To map one pad, key or knob, press it or click it on the picture above. For anything
+          wider:
+        </p>
         <div className="map-more">
           <button
             className="link"

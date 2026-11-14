@@ -31,7 +31,11 @@ interface ActiveTransition {
   kind: TransitionKind;
   duration: number;
   elapsed: number;
-  direction: 1 | -1;
+  /**
+   * Going back through the deck: the transition the slide being left arrived
+   * with is played backwards, so it leaves the way it came.
+   */
+  reverse: boolean;
   /** The slide on its way out. Null for the ASCII transitions, which draw a photograph of it instead. */
   outgoing: SlideScene | null;
 }
@@ -173,8 +177,12 @@ export class StagePlayer {
     const previous = this.index;
     this.index = target;
 
-    const kind = animate ? slide.transition.kind : 'cut';
-    const duration = slide.transition.duration / 1000;
+    // Forward, a slide arrives with its own transition. Going back, the slide being
+    // left plays the transition it arrived with in reverse.
+    const reverse = direction === -1;
+    const spec = (reverse ? deck.slides[previous]?.transition : undefined) ?? slide.transition;
+    const kind = animate ? spec.kind : 'cut';
+    const duration = spec.duration / 1000;
     const moving = outgoing !== null && kind !== 'cut' && duration > 0;
     if (moving && isGlyphTransition(kind)) {
       // The old slide is photographed into character cells and let go at once.
@@ -184,19 +192,21 @@ export class StagePlayer {
         this.glyphs.start(this.renderer, outgoing.root, {
           kind,
           direction,
-          cell: slide.transition.cell,
-          glyphs: slide.transition.glyphs,
+          cell: spec.cell,
+          glyphs: spec.glyphs,
           outgoingBackground: deck.slides[previous]?.background.color ?? '#000000',
           incomingBackground: slide.background.color,
         });
       outgoing.destroy();
       applyFrame(incoming.root, RESTING, this.size.width, this.size.height);
       if (started) {
-        this.transition = { kind, duration, elapsed: 0, direction, outgoing: null };
+        this.transition = { kind, duration, elapsed: 0, reverse, outgoing: null };
         this.applyTransition();
       }
     } else if (moving) {
-      this.transition = { kind, duration, elapsed: 0, direction, outgoing };
+      // In reverse the slide being left stays on top, as it was when it arrived.
+      if (reverse) this.slides.setChildIndex(incoming.root, 0);
+      this.transition = { kind, duration, elapsed: 0, reverse, outgoing };
       this.applyTransition();
     } else {
       outgoing?.destroy();
@@ -214,7 +224,14 @@ export class StagePlayer {
       this.glyphs.update(progress);
       return;
     }
-    const frame = transitionFrame(t.kind, progress, width, t.direction, height);
+    if (t.reverse) {
+      // The forward transition run backwards, with the two slides in each other's roles.
+      const frame = transitionFrame(t.kind, 1 - progress, width, 1, height);
+      applyFrame(this.scene.root, frame.outgoing, width, height);
+      applyFrame(t.outgoing.root, frame.incoming, width, height);
+      return;
+    }
+    const frame = transitionFrame(t.kind, progress, width, 1, height);
     applyFrame(this.scene.root, frame.incoming, width, height);
     applyFrame(t.outgoing.root, frame.outgoing, width, height);
   }

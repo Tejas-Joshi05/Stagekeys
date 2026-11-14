@@ -138,3 +138,19 @@ describe('keyboard shortcuts', () => {
     expect(actionForKey(key('q'), 'show')).toBeNull();
   });
 });
+
+describe('help shortcut', () => {
+  const press = (key: string) => ({
+    key,
+    metaKey: false,
+    ctrlKey: false,
+    shiftKey: key === '?',
+    altKey: false,
+  });
+  it('opens with ? or F1 while editing, and is not a key during a show', () => {
+    expect(actionForKey(press('?'), 'editor')).toEqual({ type: 'view.toggleHelp' });
+    expect(actionForKey(press('F1'), 'editor')).toEqual({ type: 'view.toggleHelp' });
+    expect(actionForKey(press('?'), 'show')).toBeNull();
+    expect(actionForKey(press('F1'), 'show')).toBeNull();
+  });
+});

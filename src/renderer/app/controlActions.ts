@@ -212,6 +212,10 @@ export function registerControlActions(): void {
     if (showing()) sendToStage(a, 'ui');
     else useEditorUi.setState((s) => ({ fpsVisible: !s.fpsVisible }));
   });
+  // Help belongs to the editor: never over the presenter view.
+  actions.register('view.toggleHelp', () => {
+    if (!showing()) useAppStore.setState((s) => ({ help: !s.help }));
+  });
   // Settings changes reach the stage window through main, so no forwarding is needed.
   actions.register('view.toggleKeys', () => {
     const overlay = useSettings.getState().keysOverlay;

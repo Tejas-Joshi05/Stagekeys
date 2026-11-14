@@ -19,6 +19,7 @@ MIDI-controlled slide editor and live presenter (Electron + Vite + React + TypeS
 
 - Tejas asked on 2026-11-13 to build continuously instead of stopping after each phase. Commit locally at sensible milestones; **do not push until he says so**.
 - Before each commit: `pnpm check` and `pnpm test:e2e` pass, `CHANGELOG.md` updated, `docs/ARCHITECTURE.md` updated if the design moved.
+- `docs/GUIDE.md` is the user guide to the whole app. Every feature added or changed updates it in the same commit (Tejas asked for this on 2026-11-15). The in-app help (`app/Help.tsx`) carries the essentials; keep the two in step.
 - Big choices get a short record in `docs/decisions/NNNN-title.md`.
 - Semantic versioning for the app, `schemaVersion` for decks.
 - The show machine is macOS. Keep code cross-platform, but Windows is untested; say so instead of claiming it works.

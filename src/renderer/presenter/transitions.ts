@@ -19,6 +19,22 @@ export const TRANSITION_LABELS: Record<TransitionKind, string> = {
   'ascii-iris': 'ASCII iris',
 };
 
+/** One line on what each transition looks like, for the editor. */
+export const TRANSITION_HINTS: Record<TransitionKind, string> = {
+  cut: 'The new slide simply appears.',
+  fade: 'The new slide fades in over the old one.',
+  dip: 'The old slide fades to black, then the new one fades in.',
+  slide: 'The new slide pushes the old one out sideways.',
+  'slide-up': 'The new slide pushes the old one up and out.',
+  cover: 'The new slide slides in over the old one, which stays put.',
+  zoom: 'The old slide grows and fades while the new one settles into place.',
+  'ascii-dissolve': 'The old slide breaks into scattered characters and the new one shows through.',
+  'ascii-wipe': 'A ragged edge of characters sweeps across, left to right.',
+  'ascii-scan': 'The slide is retyped row by row, like a terminal redrawing.',
+  'ascii-rain': 'Columns of characters fall, each starting at its own moment.',
+  'ascii-iris': 'A ring of characters opens from the centre outwards.',
+};
+
 export type GlyphTransitionKind = Extract<TransitionKind, `ascii-${string}`>;
 
 /** The transitions that break the old slide into character cells. */
@@ -116,7 +132,7 @@ export const CELL_STAGGER = 0.62;
 
 /**
  * When a cell starts to turn over, 0 (first) to 1 (last). Going back through
- * the deck runs each pattern the other way.
+ * the deck runs each pattern in exactly the reverse order.
  */
 export function cellDelay(
   kind: GlyphTransitionKind,
@@ -128,27 +144,33 @@ export function cellDelay(
 ): number {
   const x = cols > 1 ? col / (cols - 1) : 0;
   const y = rows > 1 ? row / (rows - 1) : 0;
-  const forward = direction === 1;
+  let delay: number;
   switch (kind) {
     case 'ascii-dissolve':
-      return noise(col, row, 7);
+      delay = noise(col, row, 7);
+      break;
     case 'ascii-wipe':
-      return clamp01(0.86 * (forward ? x : 1 - x) + 0.14 * noise(col, row, 3));
-    case 'ascii-scan': {
+      delay = clamp01(0.86 * x + 0.14 * noise(col, row, 3));
+      break;
+    case 'ascii-scan':
       // Row by row, like a terminal redrawing the screen.
-      const at = (row * cols + col) / Math.max(1, cols * rows - 1);
-      return forward ? at : 1 - at;
-    }
+      delay = (row * cols + col) / Math.max(1, cols * rows - 1);
+      break;
     case 'ascii-rain':
-      // Each column starts at its own moment and falls (or, going back, rises).
-      return clamp01(0.5 * noise(col, 0, 5) + 0.5 * (forward ? y : 1 - y));
+      // Each column starts at its own moment and falls.
+      delay = clamp01(0.5 * noise(col, 0, 5) + 0.5 * y);
+      break;
     case 'ascii-iris': {
       const dx = (x - 0.5) * 2;
       const dy = (y - 0.5) * 2;
-      const distance = Math.min(1, Math.hypot(dx, dy) / Math.SQRT2);
-      return clamp01(0.9 * (forward ? distance : 1 - distance) + 0.1 * noise(col, row, 11));
+      delay = clamp01(
+        0.9 * Math.min(1, Math.hypot(dx, dy) / Math.SQRT2) + 0.1 * noise(col, row, 11),
+      );
+      break;
     }
   }
+  // Backwards, the last cell to turn goes first: the exact order, reversed.
+  return direction === 1 ? delay : 1 - delay;
 }
 
 /** A cell's own progress (0 not started, 1 done) at transition progress t. */

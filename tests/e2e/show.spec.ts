@@ -36,6 +36,13 @@ test('animations play, the show survives a stress run, and export works', async 
   await win.getByTestId('new-deck').click();
   await expect(win.getByTestId('editor')).toBeVisible();
 
+  // An empty slide says what to do, and the built-in help opens and closes.
+  await expect(win.getByTestId('canvas-empty')).toBeVisible();
+  await win.getByTestId('open-help').click();
+  await expect(win.getByTestId('help')).toContainText('During a show');
+  await win.keyboard.press('Escape');
+  await expect(win.getByTestId('help')).toHaveCount(0);
+
   // Slide 1: a Bloom, which starts with velocity bound to its size.
   await win.getByTestId('add-animation').selectOption('bloom');
   await expect(win.getByTestId('binding')).toHaveCount(1);
@@ -78,6 +85,7 @@ test('animations play, the show survives a stress run, and export works', async 
   await win.keyboard.press('Escape');
   await win.getByTestId('slide-thumb').nth(1).click();
   await win.getByTestId('transition-kind').selectOption('ascii-dissolve');
+  await expect(win.getByTestId('transition-hint')).toContainText('plays it in reverse');
   await win.getByTestId('transition-everywhere').click();
   await win.getByTestId('slide-thumb').nth(2).click();
   await expect(win.getByTestId('transition-kind')).toHaveValue('ascii-dissolve');

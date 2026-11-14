@@ -29,7 +29,7 @@ import {
   type Transition,
 } from '../deck';
 import { learnSession, type Zone } from '../mapping';
-import { isGlyphTransition, TRANSITION_LABELS } from '../presenter';
+import { isGlyphTransition, TRANSITION_HINTS, TRANSITION_LABELS } from '../presenter';
 import { BUNDLED_FONTS, isBundledFont, listSystemFonts } from '../render';
 import { newId } from '../shared/util';
 import { CheckField, ColourField, NumField, Section, SelectField, TextField } from './fields';
@@ -144,6 +144,7 @@ function SlideProps() {
             min={0}
             max={5000}
             step={50}
+            testId="transition-duration"
             onChange={(duration) => setSlideTransition(slide.id, { duration })}
           />
           {isGlyphTransition(slide.transition.kind) && (
@@ -165,11 +166,11 @@ function SlideProps() {
             </>
           )}
         </div>
-        {isGlyphTransition(slide.transition.kind) && (
-          <p className="hint">
-            The old slide breaks into characters and the new one shows through. Try 600–900 ms.
-          </p>
-        )}
+        <p className="hint transition-hint" data-testid="transition-hint">
+          {TRANSITION_HINTS[slide.transition.kind]}
+          {slide.transition.kind !== 'cut' && ' Going back from this slide plays it in reverse.'}
+          {isGlyphTransition(slide.transition.kind) && ' Reads best at 600–900 ms.'}
+        </p>
         <button
           className="link"
           data-testid="transition-everywhere"

@@ -65,6 +65,8 @@ export const ActionSchema = z.discriminatedUnion('type', [
   plain('view.toggleFps'),
   /** Shows or hides the little controller picture (on the audience screen during a show). */
   plain('view.toggleKeys'),
+  /** Opens or closes the built-in help. Does nothing during a show. */
+  plain('view.toggleHelp'),
   // Sound
   plain('audio.togglePiano'),
   /** Sound input (microphone or line in) for audio-reactive animations. */

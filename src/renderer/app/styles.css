@@ -1766,13 +1766,13 @@ button.tool.toggle.on {
   flex: none;
 }
 .deck-title {
-  width: 124px !important;
+  width: 104px !important;
 }
 .tool-group {
   padding: 0 4px;
 }
 .add-animation {
-  max-width: 150px;
+  max-width: 134px;
 }
 .display-picker {
   max-width: 128px;
@@ -1898,4 +1898,77 @@ button.tool.toggle.on {
 }
 .mapping-input {
   white-space: normal;
+}
+
+/* ── Help ────────────────────────────────────────────────────────────────── */
+.modal.help {
+  width: 760px;
+}
+.modal.help h3 {
+  font-size: 13px;
+  margin: 16px 0 6px;
+  color: var(--leaf);
+}
+.help-steps {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px 22px;
+}
+.help-steps h3 {
+  margin-top: 8px;
+}
+.help-steps p {
+  margin: 0;
+  line-height: 1.45;
+}
+.help-keys {
+  margin: 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 3px 22px;
+}
+.help-keys > div {
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+}
+.help-keys dt {
+  flex: none;
+  min-width: 128px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 11.5px;
+  color: var(--rose);
+}
+.help-keys dd {
+  margin: 0;
+}
+@media (max-width: 760px) {
+  .help-steps,
+  .help-keys {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ── An empty slide says what to do ──────────────────────────────────────── */
+.canvas-empty {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  text-align: center;
+  color: rgba(239, 230, 216, 0.5);
+  font-size: 14px;
+  line-height: 1.6;
+}
+.welcome-steps {
+  margin: 14px 0 0;
+  padding-left: 18px;
+  line-height: 1.6;
+  color: rgba(239, 230, 216, 0.72);
+  font-size: 13px;
+}
+.transition-hint {
+  margin: 4px 0 0;
 }
