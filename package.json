@@ -1,6 +1,6 @@
 {
   "name": "stagekeys",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "description": "MIDI-controlled slide editor and live presenter",
   "private": true,
   "main": "out/main/index.js",

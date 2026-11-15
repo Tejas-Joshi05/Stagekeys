@@ -145,7 +145,10 @@ export async function runControl(root: HTMLElement): Promise<void> {
       } catch (e) {
         error = errorMessage(e);
       }
-      api().flushDone(error);
+      // Edited, but never given a file of its own: main asks before closing.
+      const s = useDeckStore.getState();
+      const unsaved = s.deck && s.isDraft && s.revision !== 0 ? s.deck.meta.title : null;
+      api().flushDone(error, unsaved);
     })();
   });
 

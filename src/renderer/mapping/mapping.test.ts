@@ -9,7 +9,7 @@ import {
 } from './chords';
 import { describeInput } from './controls';
 import { applyCurve, scaleValue } from './curves';
-import { startMappingEngine } from './engine';
+import { REPEAT_GUARD_MS, startMappingEngine } from './engine';
 import { parseMappingFile, serialiseMappings } from './file';
 import { LearnSession, learnFromMessage } from './learn';
 import { actionFor, matchMapping, resolveMappings } from './match';
@@ -533,5 +533,79 @@ describe('chords', () => {
       trigger: { kind: 'noteOn' },
       filters: { noteFrom: 62, noteTo: 62 },
     });
+  });
+});
+
+describe('one press, one action', () => {
+  const key = (note: number, filters = {}) =>
+    mapping({
+      id: `k${note}`,
+      trigger: { kind: 'noteOn' },
+      filters: { noteFrom: note, noteTo: note, ...filters },
+    });
+  const press = (bus: MidiBus, note: number, time: number) =>
+    bus.emit({ type: 'noteOn', channel: 1, note, velocity: 90 }, 'Keys', time, 0);
+
+  it('a press that arrives twice moves one slide, not two', () => {
+    const bus = new MidiBus();
+    const dispatch = vi.fn(() => true);
+    startMappingEngine({ bus, dispatch, getMappings: () => ({ slide: [], global: [key(62)] }) });
+    press(bus, 62, 1000);
+    const echo = press(bus, 62, 1003);
+    expect(dispatch).toHaveBeenCalledTimes(1);
+    // The echo is still used up, so it does not set off an animation either.
+    expect(echo.consumed).toBe(true);
+    // A deliberate second press goes through.
+    press(bus, 62, 1000 + REPEAT_GUARD_MS);
+    expect(dispatch).toHaveBeenCalledTimes(2);
+  });
+
+  it('two mappings that both say "next" on the same press move one slide', () => {
+    const bus = new MidiBus();
+    const dispatch = vi.fn(() => true);
+    const twice = [key(62), { ...key(62), id: 'again' }];
+    startMappingEngine({ bus, dispatch, getMappings: () => ({ slide: [], global: twice }) });
+    press(bus, 62, 500);
+    expect(dispatch).toHaveBeenCalledTimes(1);
+  });
+
+  it('a key on the way to a chord and the chord itself do not both change the slide', () => {
+    const bus = new MidiBus();
+    const dispatch = vi.fn(() => true);
+    const global = [
+      key(64),
+      mapping({ id: 'c', trigger: { ...chordTrigger([60, 64, 67]), exact: false } }),
+    ];
+    startMappingEngine({ bus, dispatch, getMappings: () => ({ slide: [], global }) });
+    press(bus, 60, 0);
+    press(bus, 64, 10);
+    press(bus, 67, 20);
+    expect(dispatch).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not hold back different actions, or animation triggers', () => {
+    const bus = new MidiBus();
+    const dispatch = vi.fn(() => true);
+    const global = [
+      key(60),
+      mapping({
+        id: 'prev',
+        trigger: { kind: 'noteOn' },
+        filters: { noteFrom: 61, noteTo: 61 },
+        action: { type: 'nav.prev' },
+      }),
+      mapping({
+        id: 'anim',
+        trigger: { kind: 'noteOn' },
+        filters: { noteFrom: 62, noteTo: 62 },
+        action: { type: 'anim.trigger', elementId: 'e', value: 1 },
+      }),
+    ];
+    startMappingEngine({ bus, dispatch, getMappings: () => ({ slide: [], global }) });
+    press(bus, 60, 0);
+    press(bus, 61, 5);
+    press(bus, 62, 10);
+    press(bus, 62, 12);
+    expect(dispatch).toHaveBeenCalledTimes(4);
   });
 });

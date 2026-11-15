@@ -112,7 +112,11 @@ export interface StagekeysApi {
   onMenuAction(callback: (action: unknown) => void): () => void;
   /** Main asks the control window to flush pending saves before closing. */
   onFlushRequest(callback: () => void): () => void;
-  flushDone(error: string | null): void;
+  /**
+   * `unsavedTitle` is the deck's title when it has been edited but never saved
+   * to a file of its own (it exists only as a draft), so main can ask before closing.
+   */
+  flushDone(error: string | null, unsavedTitle: string | null): void;
 
   getSettings(): Promise<AppSettings>;
   /** Merges the patch, saves it, and sends the result to every window. */

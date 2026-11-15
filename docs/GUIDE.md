@@ -2,7 +2,7 @@
 
 Stagekeys is a slide editor and presenter that you play from a MIDI keyboard. Keys, pads, knobs and chords change slides and drive animations; a microphone can drive them too. This guide covers everything the app does and how to use it.
 
-It describes version 0.5.0. It is updated whenever a feature is added or changed. The same essentials are inside the app: press **?** (or F1, or the **?** button in the toolbar).
+It describes version 0.5.1. It is updated whenever a feature is added or changed. The same essentials are inside the app: press **?** (or F1, or the **?** button in the toolbar).
 
 The app is built and tested on macOS with an Akai MPK mini. It should run on Windows (use Ctrl where this guide says ⌘), but that has not been tested.
 
@@ -212,7 +212,8 @@ During a show nothing opens a dialog or steals focus. If an animation fails, it 
 - **Save** (⌘S) and **Save As** (⇧⌘S). The toolbar shows the save status. A failed save is shown clearly.
 - **Autosave** writes about every 5 seconds when something has changed.
 - **Backups**: a timestamped copy is kept inside the deck on open and every couple of minutes; the newest 20 are kept. If a deck cannot be opened, Stagekeys offers its backups.
-- **Drafts**: a new deck you have edited but never saved is kept and listed on the welcome screen until you delete it.
+- **Drafts**: a new deck you have edited but never saved is kept and listed on the welcome screen until you delete it. Deleting a draft asks first; it cannot be undone.
+- **Quitting**: if the deck has never been saved to a file, Stagekeys asks whether to save it, close anyway (it stays as a draft) or cancel. Decks that have a file are saved on the way out without asking.
 - **Export**: File › Export Slides as PNG or as PDF, as a fallback if you ever have to present without Stagekeys.
 - Decks from older versions open and are upgraded when saved. A deck saved by a newer version does not open in an older one; the app says so and leaves the file alone.
 - Fonts that come with Stagekeys work everywhere. A font installed only on your Mac will be replaced on another machine.
@@ -257,6 +258,7 @@ These always work, even with the MIDI keyboard unplugged.
 
 ## When something is not working
 
+- **One press does something twice, or skips slides**: Stagekeys ignores the same press arriving on a second port and will not repeat a one-off action within about a seventh of a second. If it still happens, choose one port under MIDI & sound › Device (for the MPK mini IV, "MPK mini IV MIDI Port") instead of all devices.
 - **Keys do nothing in a show**: use the computer keyboard (→, ←, B, H, Esc). Unplugging and replugging the controller reconnects it by itself.
 - **A mapping does not fire in the editor**: on the Mapping tab, untick "Press a control to choose it".
 - **A chord does not fire**: let go of every other key or pad (or untick "Only when no other key is held"), and press the keys closer together (or raise "Keys land within").

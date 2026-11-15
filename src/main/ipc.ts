@@ -380,9 +380,12 @@ export function registerIpc(): void {
   ipcMain.on(CHANNELS.showMessage, (event, message: unknown) => {
     relayShowMessage(event.sender, message);
   });
-  ipcMain.on(CHANNELS.flushDone, (event, error: unknown) => {
+  ipcMain.on(CHANNELS.flushDone, (event, error: unknown, unsavedTitle: unknown) => {
     if (event.sender !== getControlWindow()?.webContents) return;
-    finishControlClose(typeof error === 'string' ? error : null);
+    finishControlClose(
+      typeof error === 'string' ? error : null,
+      typeof unsavedTitle === 'string' ? unsavedTitle.slice(0, 200) : null,
+    );
   });
   ipcMain.on(CHANNELS.log, (_event, level: unknown, message: unknown, data: unknown) => {
     const parsed = z.enum(['debug', 'info', 'warn', 'error']).safeParse(level);

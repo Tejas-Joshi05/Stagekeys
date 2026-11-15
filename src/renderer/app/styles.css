@@ -1972,3 +1972,10 @@ button.tool.toggle.on {
 .transition-hint {
   margin: 4px 0 0;
 }
+.confirm-actions {
+  gap: 8px;
+}
+.confirm-actions button.danger {
+  border-color: var(--rose);
+  color: var(--rose);
+}

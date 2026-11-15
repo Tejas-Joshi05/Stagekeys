@@ -29,6 +29,10 @@ When the show starts, read any notices in the corner of the presenter view: they
 - **An animation looks stuck**: press **H** (panic). It resets the slide's animations and stays on the same slide.
 - **The stage window is lost or black**: Stagekeys reloads it on the same slide by itself. Esc ends the show; Present starts it again where you were.
 
+## The MPK mini IV has three ports
+
+It appears as a MIDI port, a DAW port and a Software port. Stagekeys copes with a press arriving on more than one, but for a show choose **MPK mini IV MIDI Port** under MIDI & sound › Device so only the keys, pads and knobs are heard.
+
 ## Chords and transitions
 
 - A chord fires on its last key. Do not give the keys of a chord their own next-slide or go-to mappings: the first key would act before the chord is complete.

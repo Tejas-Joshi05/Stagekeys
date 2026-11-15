@@ -6,6 +6,7 @@ import { api } from '../shared/api';
 import { notify } from '../shared/notify';
 import { useAppStore } from './appStore';
 import { reportOpenResult } from './controlActions';
+import { askToConfirm } from './Confirm';
 import { HelpButton } from './Help';
 import { WelcomeGarden } from './WelcomeGarden';
 
@@ -100,7 +101,18 @@ export function Welcome() {
                 <span className="draft-title">{d.title}</span>
                 <span className="draft-date">{when(d.modified)}</span>
                 <button onClick={() => void openDeckAt(d.path).then(reportOpenResult)}>Open</button>
-                <button className="link danger" onClick={() => void remove(d)}>
+                <button
+                  className="link danger"
+                  data-testid="draft-delete"
+                  onClick={() =>
+                    askToConfirm({
+                      title: `Delete the draft “${d.title || 'Untitled'}”?`,
+                      detail: `Last edited ${when(d.modified)}. The draft and its backups are deleted for good. This cannot be undone.`,
+                      action: 'Delete draft',
+                      onConfirm: () => void remove(d),
+                    })
+                  }
+                >
                   Delete
                 </button>
               </div>

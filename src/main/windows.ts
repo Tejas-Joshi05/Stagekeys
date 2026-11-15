@@ -92,7 +92,7 @@ export function createControlWindow(): BrowserWindow {
 }
 
 /** Called when the renderer reports its final save result (or the wait timed out). */
-export function finishControlClose(error: string | null): void {
+export function finishControlClose(error: string | null, unsavedTitle: string | null = null): void {
   if (flushTimer) clearTimeout(flushTimer);
   flushTimer = null;
   const win = controlWindow;
@@ -107,6 +107,24 @@ export function finishControlClose(error: string | null): void {
       cancelId: 0,
     });
     if (choice === 0) return;
+  }
+  // A deck that has only ever been a draft: ask before it is left without a file of its own.
+  // Never during a show (no dialogs then) and never in tests.
+  if (!error && unsavedTitle !== null && !isE2E && !isShowActive()) {
+    const choice = dialog.showMessageBoxSync(win, {
+      type: 'question',
+      message: `“${unsavedTitle || 'Untitled'}” has not been saved to a file.`,
+      detail:
+        'If you close now it is kept as a draft and offered on the welcome screen next time, but it has no file of its own yet.',
+      buttons: ['Save…', 'Close Without Saving', 'Cancel'],
+      defaultId: 0,
+      cancelId: 2,
+    });
+    if (choice === 2) return;
+    if (choice === 0) {
+      win.webContents.send(CHANNELS.menuAction, { type: 'file.saveAs' });
+      return;
+    }
   }
   controlClosing = true;
   win.close();

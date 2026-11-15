@@ -2,7 +2,20 @@
 
 Stagekeys follows semantic versioning. Deck files carry their own `schemaVersion`.
 
-## 0.5.0 (unreleased)
+## 0.5.1 (unreleased)
+
+### Fixed
+
+- **One press no longer skips several slides.** The MPK mini IV appears as three MIDI ports (MIDI, DAW and Software), and with "All devices" selected one key press could arrive more than once; the log showed two "next slide" actions a few milliseconds apart. Two guards now apply:
+  - the same message arriving from a second port within 25 ms is treated as an echo and dropped;
+  - a one-off action (next, previous, go to, black screen, panic, and the piano, sound input and keys picture switches) cannot fire twice from MIDI within 140 ms. This also covers a bouncing pad, two mappings that both match one press, and a key that is mapped on its own and is also part of a chord.
+
+### Asking first
+
+- **Quitting with a deck that was never saved to a file** now asks: Save…, Close Without Saving, or Cancel. Closing without saving keeps it as a draft on the welcome screen, as before. Decks that already have a file are autosaved on the way out and are not asked about. The question is never asked during a show.
+- **Deleting a draft** from the welcome screen asks first, with Cancel as the default.
+
+## 0.5.0
 
 Deck schema is now version 4 (chord triggers, more transitions). Older decks open unchanged and are saved as version 4. A deck saved by 0.5.0 does not open in 0.4.0.
 

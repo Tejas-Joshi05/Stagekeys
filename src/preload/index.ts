@@ -38,7 +38,7 @@ const api: StagekeysApi = {
   onShowEnded: (callback) => subscribe<undefined>(CHANNELS.showEnded, () => callback()),
   onMenuAction: (callback) => subscribe(CHANNELS.menuAction, callback),
   onFlushRequest: (callback) => subscribe<undefined>(CHANNELS.flushRequest, () => callback()),
-  flushDone: (error) => ipcRenderer.send(CHANNELS.flushDone, error),
+  flushDone: (error, unsavedTitle) => ipcRenderer.send(CHANNELS.flushDone, error, unsavedTitle),
   getSettings: () => ipcRenderer.invoke(CHANNELS.getSettings),
   updateSettings: (patch) => ipcRenderer.invoke(CHANNELS.updateSettings, patch),
   onSettingsChanged: (callback) => subscribe<AppSettings>(CHANNELS.settingsChanged, callback),

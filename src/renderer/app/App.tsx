@@ -3,6 +3,7 @@ import { Editor } from '../editor';
 import { PresenterView, RehearsalReport, usePresenterStore } from '../presenter';
 import { PanelBoundary } from '../shared/PanelBoundary';
 import { useAppStore } from './appStore';
+import { ConfirmModal } from './Confirm';
 import { Help } from './Help';
 import { Notices } from './Notices';
 import { OpenErrorModal, Welcome } from './Welcome';
@@ -29,6 +30,7 @@ export function App() {
       <RehearsalReport />
       {!presenting && <Help />}
       <OpenErrorModal />
+      {!presenting && <ConfirmModal />}
       <Notices />
     </>
   );

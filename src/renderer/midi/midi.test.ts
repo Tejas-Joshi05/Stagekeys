@@ -155,6 +155,34 @@ describe('MidiService hot-plugging', () => {
     expect(service.bus.head).toBe(2);
   });
 
+  it('hears a key press once when the keyboard sends it on several ports', async () => {
+    const service = new MidiService();
+    const main = { id: 'p1', name: 'MPK mini IV MIDI Port', manufacturer: 'Akai' };
+    const daw = { id: 'p2', name: 'MPK mini IV DAW Port', manufacturer: 'Akai' };
+    const source = new MockMidiSource([main, daw]);
+    await service.start(source);
+    // The same press on both ports, a moment apart: one message.
+    source.send('p1', [0x90, 62, 100], 1000);
+    source.send('p2', [0x90, 62, 100], 1001);
+    expect(service.bus.head).toBe(1);
+    // Its release too.
+    source.send('p2', [0x80, 62, 0], 1100);
+    source.send('p1', [0x80, 62, 0], 1100);
+    expect(service.bus.head).toBe(2);
+    // The same port repeating a note is a real second press.
+    source.send('p1', [0x90, 62, 100], 1200);
+    source.send('p1', [0x90, 62, 100], 1205);
+    expect(service.bus.head).toBe(4);
+    // Different notes on different ports are different presses, and so is the same note later.
+    source.send('p1', [0x90, 64, 100], 1300);
+    source.send('p2', [0x90, 65, 100], 1300);
+    source.send('p2', [0x90, 64, 100], 1400);
+    expect(service.bus.head).toBe(7);
+    // Injected (virtual keyboard) messages are never treated as echoes.
+    service.inject([0x90, 64, 100], 1401);
+    expect(service.bus.head).toBe(8);
+  });
+
   it('listens only to the selected device and matches it by name after a replug', async () => {
     const service = new MidiService();
     const source = new MockMidiSource([keys, pads]);

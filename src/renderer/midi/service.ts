@@ -7,6 +7,22 @@ import type { MidiDevice, MidiStatus } from './types';
 
 export const VIRTUAL_DEVICE = 'Virtual Keyboard';
 const SELECTION_KEY = 'stagekeys.midi.selection';
+/**
+ * Some keyboards appear as several ports (the MPK mini IV has a MIDI port, a
+ * DAW port and a software port) and send the same key press on more than one.
+ * The same bytes from a different port this soon after are that echo, not a
+ * second press.
+ */
+const ECHO_MS = 25;
+const ECHO_MEMORY = 16;
+
+interface Heard {
+  device: string;
+  status: number;
+  d1: number;
+  d2: number;
+  time: number;
+}
 
 interface ServiceHooks {
   onWarn?: (message: string) => void;
@@ -24,6 +40,8 @@ export class MidiService {
   private source: MidiSource | null = null;
   private hooks: ServiceHooks = {};
   private wasConnected = false;
+  private readonly heard: Heard[] = [];
+  private heardAt = 0;
 
   constructor(bus = new MidiBus(), input = new MidiInputState()) {
     this.bus = bus;
@@ -61,6 +79,8 @@ export class MidiService {
     this.source = null;
     this.input.releaseAll();
     this.wasConnected = false;
+    this.heard.length = 0;
+    this.heardAt = 0;
   }
 
   select(selection: string): void {
@@ -83,8 +103,39 @@ export class MidiService {
     if (!force && selection !== ALL_DEVICES && selection !== device) return;
     const parsed = parseMidi(data);
     if (!parsed) return;
+    if (!force && this.isEcho(device, data, time)) return;
     const previousCc = this.input.apply(parsed);
     this.bus.emit(parsed, device, time, previousCc);
+  }
+
+  /** True when another port delivered these exact bytes a moment ago. Remembers the message otherwise. */
+  private isEcho(device: string, data: ArrayLike<number>, time: number): boolean {
+    const status = data[0] ?? 0;
+    const d1 = data[1] ?? 0;
+    const d2 = data[2] ?? 0;
+    for (const h of this.heard) {
+      if (
+        h.device !== device &&
+        h.status === status &&
+        h.d1 === d1 &&
+        h.d2 === d2 &&
+        Math.abs(time - h.time) <= ECHO_MS
+      ) {
+        return true;
+      }
+    }
+    const slot = this.heard[this.heardAt];
+    if (slot) {
+      slot.device = device;
+      slot.status = status;
+      slot.d1 = d1;
+      slot.d2 = d2;
+      slot.time = time;
+    } else {
+      this.heard[this.heardAt] = { device, status, d1, d2, time };
+    }
+    this.heardAt = (this.heardAt + 1) % ECHO_MEMORY;
+    return false;
   }
 
   private devicesChanged(devices: MidiDevice[]): void {
