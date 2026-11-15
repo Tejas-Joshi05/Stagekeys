@@ -2,7 +2,15 @@
 
 Stagekeys follows semantic versioning. Deck files carry their own `schemaVersion`.
 
-## 0.5.1 (unreleased)
+## 0.5.2 (unreleased)
+
+### Transitions live between the slides
+
+- The slide list shows each transition as a chip between the two slides it joins: a symbol, the name and the length (`◐ Fade · 0.4 s`; a dashed `│ Cut` when there is none). Click it to change the transition in place, with the same settings as before and a line saying what it looks like. It used to be a section of the Properties panel, where it was hard to tell which two slides it was between.
+- The transition still belongs to the slide it leads into, so it moves with that slide when slides are reordered. The first slide has no chip.
+- "Use on every slide" is now **Use everywhere**, in the same place.
+
+## 0.5.1
 
 ### Fixed
 

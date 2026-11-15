@@ -82,16 +82,29 @@ test('animations play, the show survives a stress run, and export works', async 
   await win.getByTestId('talk-length').fill('20');
 
   // Every slide arrives through an ASCII transition, so the stress run below hammers those too.
+  // Transitions are chips between the slide thumbnails: one fewer than there are slides.
   await win.keyboard.press('Escape');
-  await win.getByTestId('slide-thumb').nth(1).click();
+  const chips = win.getByTestId('transition-chip');
+  await expect(chips).toHaveCount(9);
+  await expect(chips.first()).toHaveText(/Cut/);
+  await chips.first().click();
   await win.getByTestId('transition-kind').selectOption('ascii-dissolve');
   await expect(win.getByTestId('transition-hint')).toContainText('plays it in reverse');
   await win.getByTestId('transition-everywhere').click();
-  await win.getByTestId('slide-thumb').nth(2).click();
-  await expect(win.getByTestId('transition-kind')).toHaveValue('ascii-dissolve');
+  await win.keyboard.press('Escape');
+  await expect(win.getByTestId('transition-editor')).toHaveCount(0);
+  await expect(chips.nth(4)).toHaveText(/ASCII dissolve · 0\.4 s/);
+  await chips.nth(1).click();
   await win.getByTestId('transition-kind').selectOption('ascii-rain');
-  await win.getByTestId('slide-thumb').nth(3).click();
+  // Opening another chip closes the first.
+  await chips.nth(2).click();
+  await expect(win.getByTestId('transition-editor')).toHaveCount(1);
   await win.getByTestId('transition-kind').selectOption('slide-up');
+  await win.getByTestId('transition-duration').fill('600');
+  await win.keyboard.press('Tab');
+  await expect(chips.nth(2)).toHaveText(/Slide up · 0\.6 s/);
+  await expect(chips.nth(1)).toHaveText(/ASCII rain/);
+  await win.keyboard.press('Escape');
 
   // A chord, learned by holding three keys: C4 + E4 + G4 goes to the next slide.
   await win.getByTestId('tab-mappings').click();

@@ -14,10 +14,6 @@ import {
   getSelectedElements,
   setSelection,
   setSlideBackground,
-  setEveryTransition,
-  setSlideTransition,
-  TRANSITION_GLYPH_NAMES,
-  TRANSITION_KINDS,
   renameSlide,
   updateElements,
   updateMapping,
@@ -26,10 +22,8 @@ import {
   type Binding,
   type Listen,
   type SlideElement,
-  type Transition,
 } from '../deck';
 import { learnSession, type Zone } from '../mapping';
-import { isGlyphTransition, TRANSITION_HINTS, TRANSITION_LABELS } from '../presenter';
 import { BUNDLED_FONTS, isBundledFont, listSystemFonts } from '../render';
 import { newId } from '../shared/util';
 import { CheckField, ColourField, NumField, Section, SelectField, TextField } from './fields';
@@ -125,60 +119,6 @@ function SlideProps() {
             onChange={(v) => setSlideBackground(slide.id, v)}
           />
         </div>
-      </Section>
-      <Section title="Transition into this slide">
-        <div className="grid2">
-          <SelectField<Transition['kind']>
-            label="Type"
-            testId="transition-kind"
-            value={slide.transition.kind}
-            options={TRANSITION_KINDS.map((kind) => ({
-              value: kind,
-              label: TRANSITION_LABELS[kind],
-            }))}
-            onChange={(kind) => setSlideTransition(slide.id, { kind })}
-          />
-          <NumField
-            label="Duration (ms)"
-            value={slide.transition.duration}
-            min={0}
-            max={5000}
-            step={50}
-            testId="transition-duration"
-            onChange={(duration) => setSlideTransition(slide.id, { duration })}
-          />
-          {isGlyphTransition(slide.transition.kind) && (
-            <>
-              <NumField
-                label="Character size"
-                value={slide.transition.cell}
-                min={12}
-                max={200}
-                step={2}
-                onChange={(cell) => setSlideTransition(slide.id, { cell })}
-              />
-              <SelectField<Transition['glyphs']>
-                label="Characters"
-                value={slide.transition.glyphs}
-                options={TRANSITION_GLYPH_NAMES.map((name) => ({ value: name, label: name }))}
-                onChange={(glyphs) => setSlideTransition(slide.id, { glyphs })}
-              />
-            </>
-          )}
-        </div>
-        <p className="hint transition-hint" data-testid="transition-hint">
-          {TRANSITION_HINTS[slide.transition.kind]}
-          {slide.transition.kind !== 'cut' && ' Going back from this slide plays it in reverse.'}
-          {isGlyphTransition(slide.transition.kind) && ' Reads best at 600–900 ms.'}
-        </p>
-        <button
-          className="link"
-          data-testid="transition-everywhere"
-          title="Give every slide in the deck this transition"
-          onClick={() => setEveryTransition(slide.transition)}
-        >
-          Use on every slide
-        </button>
       </Section>
       <Section title="Layers">
         {layers.length === 0 && (

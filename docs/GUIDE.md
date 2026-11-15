@@ -2,7 +2,7 @@
 
 Stagekeys is a slide editor and presenter that you play from a MIDI keyboard. Keys, pads, knobs and chords change slides and drive animations; a microphone can drive them too. This guide covers everything the app does and how to use it.
 
-It describes version 0.5.1. It is updated whenever a feature is added or changed. The same essentials are inside the app: press **?** (or F1, or the **?** button in the toolbar).
+It describes version 0.5.2. It is updated whenever a feature is added or changed. The same essentials are inside the app: press **?** (or F1, or the **?** button in the toolbar).
 
 The app is built and tested on macOS with an Akai MPK mini. It should run on Windows (use Ctrl where this guide says ⌘), but that has not been tested.
 
@@ -33,7 +33,7 @@ The app is built and tested on macOS with an Akai MPK mini. It should run on Win
 ## The editor
 
 - **Toolbar** (top): new, open, save; undo and redo; the things you can add; the save status; piano, sound input and keys picture switches; MIDI status; help; the planned talk length; which screen the audience sees; Rehearse and Present.
-- **Slide list** (left): click a slide to edit it. **+ Slide**, **Duplicate** and **Delete** are at the bottom.
+- **Slide list** (left): click a slide to edit it, drag to reorder, double-click a name to rename. Between the slides are the transitions. **+ Slide**, **Duplicate** and **Delete** are at the bottom.
 - **Canvas** (middle): the slide. Click to select, drag to move, drag a handle to resize, drag the round handle to rotate. Double-click text to edit it. Guides appear when things line up. An empty slide says what to add.
 - **Notes** (under the canvas): speaker notes for the slide. Only you see them, in the presenter view.
 - **Right panel**, three tabs:
@@ -45,31 +45,33 @@ The app is built and tested on macOS with an Akai MPK mini. It should run on Win
 
 The element's own settings come first (text and font, shape colours, the animation's settings). Below are **Position and size** and **Arrange** (align, order, lock, hide), which fold away; the choice is remembered. Any setting with a range has a slider next to its number box.
 
-With nothing selected, Properties shows the slide: its name, background colour, transition and **Layers**, where each element can be hidden or locked. Lock a full-slide element (such as an ASCII vignette) if it gets in the way of clicking what is under it.
+With nothing selected, Properties shows the slide: its name, background colour and **Layers**, where each element can be hidden or locked. Lock a full-slide element (such as an ASCII vignette) if it gets in the way of clicking what is under it.
 
 ## Slides and transitions
 
-Each slide has a **Transition into this slide**: how it arrives when you move forward.
+Between every two slides in the slide list on the left there is a small chip with a symbol, the transition's name and its length, such as `◐ Fade · 0.4 s`. A dashed `│ Cut` chip means the next slide simply appears. Click a chip to change that transition right there; click it again, press Esc, click **Done** or click elsewhere to close it.
 
-| Transition       | What it does                                                                  |
-| ---------------- | ----------------------------------------------------------------------------- |
-| Cut              | The new slide simply appears.                                                 |
-| Fade             | The new slide fades in over the old one.                                      |
-| Dip to black     | The old slide fades to black, then the new one fades in.                      |
-| Slide sideways   | The new slide pushes the old one out sideways.                                |
-| Slide up         | The new slide pushes the old one up and out.                                  |
-| Cover            | The new slide slides in over the old one, which stays put.                    |
-| Zoom             | The old slide grows and fades while the new one settles into place.           |
-| ASCII dissolve   | The old slide breaks into scattered characters and the new one shows through. |
-| ASCII wipe       | A ragged edge of characters sweeps across.                                    |
-| ASCII typewriter | The slide is retyped row by row.                                              |
-| ASCII rain       | Columns of characters fall, each starting at its own moment.                  |
-| ASCII iris       | A ring of characters opens from the centre outwards.                          |
+A transition belongs to the slide below its chip: when you drag a slide to a new place, the way it arrives goes with it. The first slide has no chip, since nothing comes before it.
+
+| Transition         | What it does                                                                  |
+| ------------------ | ----------------------------------------------------------------------------- |
+| │ Cut              | The new slide simply appears.                                                 |
+| ◐ Fade             | The new slide fades in over the old one.                                      |
+| ● Dip to black     | The old slide fades to black, then the new one fades in.                      |
+| ⇢ Slide sideways   | The new slide pushes the old one out sideways.                                |
+| ⇡ Slide up         | The new slide pushes the old one up and out.                                  |
+| ⇥ Cover            | The new slide slides in over the old one, which stays put.                    |
+| ⤢ Zoom             | The old slide grows and fades while the new one settles into place.           |
+| ░ ASCII dissolve   | The old slide breaks into scattered characters and the new one shows through. |
+| ▚ ASCII wipe       | A ragged edge of characters sweeps across.                                    |
+| ▤ ASCII typewriter | The slide is retyped row by row.                                              |
+| ⁞ ASCII rain       | Columns of characters fall, each starting at its own moment.                  |
+| ◎ ASCII iris       | A ring of characters opens from the centre outwards.                          |
 
 - **Duration** is in milliseconds. The ASCII transitions read best at 600 to 900.
 - The ASCII transitions have two more settings: **Character size** and **Characters** (riso, code, dots, binary, slashes, blocks). They suit slides with ASCII animations on them: the artwork appears to retype itself.
 - **Going back plays the transition in reverse.** If slide 4 arrives with ASCII rain, going back from slide 4 to slide 3 plays that rain backwards, so the slide leaves the way it came.
-- **Use on every slide** gives the whole deck the current slide's transition, as one step you can undo.
+- **Use everywhere** puts the same transition between every pair of slides, as one step you can undo.
 - There is no preview in the editor. Use **Rehearse** to see transitions.
 
 ## Animations

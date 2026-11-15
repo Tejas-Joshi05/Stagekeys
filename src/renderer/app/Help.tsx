@@ -5,7 +5,7 @@ import { useAppStore } from './appStore';
 const STEPS: readonly { title: string; text: string }[] = [
   {
     title: '1. Build slides',
-    text: 'Add text, shapes, images and animations from the toolbar. Click something to change it in Properties, on the right. Notes for yourself go under the slide.',
+    text: 'Add text, shapes, images and animations from the toolbar. Click something to change it in Properties, on the right. The chips between the slides on the left are the transitions: click one to change it. Notes for yourself go under the slide.',
   },
   {
     title: '2. Plug in the keyboard',

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { Fragment, useCallback, useState } from 'react';
 import { dispatch } from '../actions';
 import {
   moveSlide,
@@ -9,6 +9,7 @@ import {
   type Slide,
 } from '../deck';
 import { useSlideImage } from '../render';
+import { TransitionChip } from './TransitionChip';
 
 interface ThumbProps {
   slide: Slide;
@@ -104,6 +105,9 @@ export function SlideList() {
   const currentSlideId = useDeckStore((s) => s.currentSlideId);
   const [dragId, setDragId] = useState<string | null>(null);
   const [overIndex, setOverIndex] = useState<number | null>(null);
+  /** The slide whose incoming transition is open for editing, if any. */
+  const [openTransition, setOpenTransition] = useState<string | null>(null);
+  const closeTransition = useCallback(() => setOpenTransition(null), []);
   if (!deck) return null;
 
   const drop = (index: number): void => {
@@ -126,18 +130,31 @@ export function SlideList() {
         }}
       >
         {deck.slides.map((slide, index) => (
-          <SlideThumb
-            key={slide.id}
-            slide={slide}
-            index={index}
-            deck={deck}
-            path={path}
-            selected={slide.id === currentSlideId}
-            dropBefore={dragId !== null && overIndex === index}
-            onDragStart={() => setDragId(slide.id)}
-            onDragOver={() => setOverIndex(index)}
-            onDrop={() => drop(index)}
-          />
+          <Fragment key={slide.id}>
+            {/* The first slide has nothing before it, so nothing leads into it. */}
+            {index > 0 && dragId === null && (
+              <TransitionChip
+                slide={slide}
+                index={index}
+                open={openTransition === slide.id}
+                onToggle={() =>
+                  setOpenTransition((current) => (current === slide.id ? null : slide.id))
+                }
+                onClose={closeTransition}
+              />
+            )}
+            <SlideThumb
+              slide={slide}
+              index={index}
+              deck={deck}
+              path={path}
+              selected={slide.id === currentSlideId}
+              dropBefore={dragId !== null && overIndex === index}
+              onDragStart={() => setDragId(slide.id)}
+              onDragOver={() => setOverIndex(index)}
+              onDrop={() => drop(index)}
+            />
+          </Fragment>
         ))}
         <div
           className={`thumb-end${dragId !== null && overIndex === deck.slides.length ? ' drop-before' : ''}`}
